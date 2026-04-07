@@ -21,7 +21,7 @@ import sys
 
 import easygui
 
-from PyQt5.QtWidgets import QApplication
+from PyQt6.QtWidgets import QApplication
 
 import colorStudioModel
 import colorStudioWidget

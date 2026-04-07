@@ -10,7 +10,7 @@ Color Studio - Rémi Cozot 2019
 # ----------------------------------------------------------------------------------
 import math
 import numpy as np
-import imageio
+import imageio.v2 as imageio
 import skimage
 from skimage import transform
 

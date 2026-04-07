@@ -2,19 +2,10 @@
 """
 Color Studio - Rémi Cozot 2019
 ----------------------------------
-new version of 
+new version of
 Color Studio - Rémi Cozot 2019
 """
 # ----------------------------------------------------------------------------------
-# main changes
-# ----------------------------------------------------------------------------------
-# GUI lib: pygame to pyqt5
-# include 3d color point cloud (modernGL) 
-# ----------------------------------------------------------------------------------
-# version0.0
-# -----------------------------------------------------------------------------------
-# Qt window
-
 # import(s)
 # ----------------------------------------------------------------------------------
 
@@ -26,9 +17,10 @@ import math
 import numpy as np
 import skimage
 
-from PyQt5.QtWidgets import QApplication, QWidget, QLabel, QPushButton, QVBoxLayout, QHBoxLayout, QSlider
-from PyQt5.QtGui import QIcon, QPixmap, QImage
-from PyQt5 import QtCore, QtOpenGL 
+from PyQt6.QtWidgets import QApplication, QWidget, QLabel, QPushButton, QVBoxLayout, QHBoxLayout, QSlider
+from PyQt6.QtGui import QIcon, QPixmap, QImage, QSurfaceFormat
+from PyQt6 import QtCore
+from PyQt6.QtOpenGLWidgets import QOpenGLWidget
 
 import colorStudioModel
 import colorStudioUtils
@@ -37,28 +29,23 @@ import colorStudioUIBuilder
 # functions
 # ----------------------------------------------------------------------------------
 def getScreenSize():
-    app = QApplication(sys.argv)
+    app = QApplication.instance() or QApplication(sys.argv)
     screen = app.primaryScreen()
     size = screen.size()
-
-    x = size.width()
-    y = size.height()
-
-    app.quit()
-
-    return (x,y)
+    return size.width(), size.height()
 
 # ----------------------------------------------------------------------------------
 # classes
 # ----------------------------------------------------------------------------------
-class QModernGLWidget(QtOpenGL.QGLWidget):
+class QModernGLWidget(QOpenGLWidget):
     def __init__(self):
-        fmt = QtOpenGL.QGLFormat()
+        fmt = QSurfaceFormat()
         fmt.setVersion(3, 3)
-        fmt.setProfile(QtOpenGL.QGLFormat.CoreProfile)
-        fmt.setSampleBuffers(True)
+        fmt.setProfile(QSurfaceFormat.OpenGLContextProfile.CoreProfile)
+        fmt.setSamples(4)
+        QSurfaceFormat.setDefaultFormat(fmt)
         self.timer = QtCore.QElapsedTimer()
-        super(QModernGLWidget, self).__init__(fmt, None)
+        super().__init__()
 
     def initializeGL(self):
         pass
@@ -75,6 +62,7 @@ class QModernGLWidget(QtOpenGL.QGLWidget):
 
     def render(self):
         pass
+
 # ----------------------------------------------------------------------------------
 class HelloWorld2D:
     def __init__(self, ctx, reserve='1024MB'):
@@ -102,7 +90,7 @@ class HelloWorld2D:
         )
 
         self.vbo = ctx.buffer(reserve='1024MB', dynamic=True)
-        self.vao = ctx.simple_vertex_array(self.prog, self.vbo, 'in_vert', 'in_color')
+        self.vao = ctx.vertex_array(self.prog, [(self.vbo, '2f 4f', 'in_vert', 'in_color')])
 
     def pan(self, pos):
         self.prog['Pan'].value = pos
@@ -119,8 +107,8 @@ class HelloWorld2D:
             self.vao.render(moderngl.LINE_STRIP, vertices=len(data) // 24)
         if type == 'points':
             self.ctx.point_size = 3.0
-            #self.vao.render(moderngl.POINTS, vertices=len(data) // 24)
             self.vao.render(moderngl.POINTS, vertices=len(data) // 24)
+
 # ----------------------------------------------------------------------------------
 class PanTool:
     def __init__(self):
@@ -154,19 +142,18 @@ class PanTool:
     @property
     def value(self):
         return (self.total_x - self.delta_x, self.total_y + self.delta_y)
+
 # ----------------------------------------------------------------------------------
 pan_tool = PanTool()
+
 # ----------------------------------------------------------------------------------
 class MyWidgetGL(QModernGLWidget):
     def __init__(self, img, scene=None):
-        super(MyWidgetGL, self).__init__()
+        super().__init__()
         self.VBOdata = colorStudioUtils.img2chromaVertices(img, False)
         self.setWindowTitle("3D Color")
 
-
     def init(self):
-        #self.resize(480, 480)
-        #self.setGeometry(1440,30,480,480)
         self.ctx.viewport = (0, 0, 480, 480)
         self.scene = HelloWorld2D(self.ctx)
 
@@ -176,80 +163,84 @@ class MyWidgetGL(QModernGLWidget):
         self.scene.plot(self.VBOdata)
 
     def mousePressEvent(self, evt):
-        pan_tool.start_drag(evt.x() / 512, evt.y() / 512)
+        pan_tool.start_drag(evt.position().x() / 512, evt.position().y() / 512)
         self.scene.pan(pan_tool.value)
         self.update()
 
     def mouseMoveEvent(self, evt):
-        pan_tool.dragging(evt.x() / 512, evt.y() / 512)
+        pan_tool.dragging(evt.position().x() / 512, evt.position().y() / 512)
         self.scene.pan(pan_tool.value)
         self.update()
 
     def mouseReleaseEvent(self, evt):
-        pan_tool.stop_drag(evt.x() / 512, evt.y() / 512)
+        pan_tool.stop_drag(evt.position().x() / 512, evt.position().y() / 512)
         self.scene.pan(pan_tool.value)
         self.update()
 
-    def _update(self,img):
+    def _update(self, img):
         self.VBOdata = colorStudioUtils.img2chromaVertices(img, False)
         self.update()
+
 # ----------------------------------------------------------------------------------
 class CSQIMGButton(QPushButton):
 
-	def __init__(self,qicon,size,name="noname"):
-		# qicon 	(QIcon)
-		# size 		((x,y))
-		# name 		(String)
-		super().__init__()
-		self.setIcon(qicon)
-		self.name = name
-		x,y = size
-		self.setIconSize(QtCore.QSize(x,y))
-		self.clicked.connect(self.cbClicked)
-		
-	def cbClicked(self): pass
+    def __init__(self, qicon, size, name="noname"):
+        # qicon     (QIcon)
+        # size      ((x,y))
+        # name      (String)
+        super().__init__()
+        self.setIcon(qicon)
+        self.name = name
+        x, y = size
+        self.setIconSize(QtCore.QSize(x, y))
+        self.clicked.connect(self.cbClicked)
+
+    def cbClicked(self):
+        pass
+
 # ----------------------------------------------------------------------------------
 class CSQIMGSwitchButton(QPushButton):
 
-	def __init__(self,qiconOn,qiconOff,size,name="noname"):
-		# qicon 	(QIcon)
-		# size 		((x,y))
-		# name 		(String)
-		super().__init__()
-		self.iconOn = qiconOn
-		self.iconOff = qiconOff
-		# default state : on (true)
-		self.on = True
-		self.setIcon(self.iconOn)
-		self.name = name
-		x,y = size
-		self.setIconSize(QtCore.QSize(x,y))
-		self.clicked.connect(self.cbClicked)
-		
-	def cbClicked(self):
-		self.on = not(self.on)
-		if self.on:
-			self.setIcon(self.iconOn)
-		else:
-			self.setIcon(self.iconOff)
+    def __init__(self, qiconOn, qiconOff, size, name="noname"):
+        # qicon     (QIcon)
+        # size      ((x,y))
+        # name      (String)
+        super().__init__()
+        self.iconOn = qiconOn
+        self.iconOff = qiconOff
+        # default state : on (true)
+        self.on = True
+        self.setIcon(self.iconOn)
+        self.name = name
+        x, y = size
+        self.setIconSize(QtCore.QSize(x, y))
+        self.clicked.connect(self.cbClicked)
+
+    def cbClicked(self):
+        self.on = not self.on
+        if self.on:
+            self.setIcon(self.iconOn)
+        else:
+            self.setIcon(self.iconOff)
 
 # ----------------------------------------------------------------------------------
 class CSQLoadSaveLayout(QHBoxLayout):
 
-	def __init__(self,qiconLoad,qiconSave):
-		super().__init__()
-		
-		# create load and save button
-		self.loadButton = CSQIMGButton(qiconLoad,(50,50),name="load button")
-		self.saveButton = CSQIMGButton(qiconSave,(50,50),name="save button")
-	
-		# add button to layout
-		self.addWidget(self.loadButton)
-		self.addWidget(self.saveButton)
+    def __init__(self, qiconLoad, qiconSave):
+        super().__init__()
+
+        # create load and save button
+        self.loadButton = CSQIMGButton(qiconLoad, (50, 50), name="load button")
+        self.saveButton = CSQIMGButton(qiconSave, (50, 50), name="save button")
+
+        # add button to layout
+        self.addWidget(self.loadButton)
+        self.addWidget(self.saveButton)
+
 # ----------------------------------------------------------------------------------
 class CSQLightControlLayout(QHBoxLayout):
 
-    def __init__(self,controller,uiDEIMG=None,uiIEIMG=None,uiCCIMG=None,stepE=0.2,maxE=5,lightPosIdx=50):
+    def __init__(self, controller, uiDEIMG=None, uiIEIMG=None, uiCCIMG=None, stepE=0.2, maxE=5, lightPosIdx=50):
         """
         widget that controls exposure, color and position of light
         @params:
@@ -259,26 +250,29 @@ class CSQLightControlLayout(QHBoxLayout):
             uiCCIMG     - Optional  : icon for color control     (Qicon)
             stepE       - Optional  : exposure step [=0.2]       (Float)
             maxE        - Optional  : max exposure  [=5.O]       (Float)
-       """
+        """
         super().__init__()
-        # controller 
+        # controller
         self._controller = controller
 
         # manage default Qicon
-        if uiDEIMG == None : uiDEIMG = colorStudioUIBuilder.CSUIBuilder.uiDEIMG 
-        if uiIEIMG == None : uiIEIMG = colorStudioUIBuilder.CSUIBuilder.uiIEIMG
-        if uiCCIMG == None : uiCCIMG = colorStudioUIBuilder.CSUIBuilder.uiCCIMG
+        if uiDEIMG is None:
+            uiDEIMG = colorStudioUIBuilder.CSUIBuilder.uiDEIMG
+        if uiIEIMG is None:
+            uiIEIMG = colorStudioUIBuilder.CSUIBuilder.uiIEIMG
+        if uiCCIMG is None:
+            uiCCIMG = colorStudioUIBuilder.CSUIBuilder.uiCCIMG
 
         # create button
-        self._deButton = CSQIMGButton(uiDEIMG,(50,50),name="decrease exposure button")
-        self._ieButton = CSQIMGButton(uiIEIMG,(50,50),name="increase exposure button")
-        self._ccButton = CSQIMGButton(uiCCIMG,(50,50),name="light color  button")
+        self._deButton = CSQIMGButton(uiDEIMG, (50, 50), name="decrease exposure button")
+        self._ieButton = CSQIMGButton(uiIEIMG, (50, 50), name="increase exposure button")
+        self._ccButton = CSQIMGButton(uiCCIMG, (50, 50), name="light color  button")
         self._exposureValueLabel = QLabel("+0.00")
-        self._sliderPosition = QSlider(QtCore.Qt.Horizontal)
+        self._sliderPosition = QSlider(QtCore.Qt.Orientation.Horizontal)
         self._sliderPosition.setValue(lightPosIdx)
         # control of Exposure
-        self._step 	= stepE
-        self._max 	= maxE
+        self._step = stepE
+        self._max = maxE
         self._exposure = 0.0
         # add button to layout
         self.addWidget(self._deButton)
@@ -293,29 +287,34 @@ class CSQLightControlLayout(QHBoxLayout):
         self._ccButton.clicked.connect(self.setColor)
 
         # slider
-        self._sliderPosition.valueChanged.connect(self.sliderValueChanged) 
+        self._sliderPosition.valueChanged.connect(self.sliderValueChanged)
 
     def incExposure(self):
         self._exposure = self._exposure + self._step
-        if self._exposure > self._max: self._exposure = self._max
+        if self._exposure > self._max:
+            self._exposure = self._max
         expoString = "{:+.2f}".format(self._exposure)
         self._exposureValueLabel.setText(expoString)
-        self._controller._event(self,[1,self._exposure])
+        self._controller._event(self, [1, self._exposure])
 
     def decExposure(self):
         self._exposure = self._exposure - self._step
-        if self._exposure < -self._max: self._exposure = -self._max
+        if self._exposure < -self._max:
+            self._exposure = -self._max
         expoString = "{:+.2f}".format(self._exposure)
         self._exposureValueLabel.setText(expoString)
-        self._controller._event(self,[-1,self._exposure])
+        self._controller._event(self, [-1, self._exposure])
 
-    def setColor(self): self._controller._event(self,[2,None])
+    def setColor(self):
+        self._controller._event(self, [2, None])
 
-    def sliderValueChanged(self,value): self._controller._event(self,[0,value])
-# ----------------------------------------------------------------------------------		
+    def sliderValueChanged(self, value):
+        self._controller._event(self, [0, value])
+
+# ----------------------------------------------------------------------------------
 class CSQAEControlLayout(QHBoxLayout):
 
-    def __init__(self, controller, uiAEonIMG=None,uiAEoffIMG=None,stepE=0.2,maxE=5):
+    def __init__(self, controller, uiAEonIMG=None, uiAEoffIMG=None, stepE=0.2, maxE=5):
 
         super().__init__()
 
@@ -324,18 +323,20 @@ class CSQAEControlLayout(QHBoxLayout):
 
         # control of Exposure
         self._Ytarget = 0.5
-        self._step 	= stepE
-        self._max 	= maxE
+        self._step = stepE
+        self._max = maxE
         self._exposureON = 0.0
         self._exposureOFF = 0.0
         self._on_off = True
 
         # manage default Qicon
-        if uiAEonIMG == None : uiAEonIMG = colorStudioUIBuilder.CSUIBuilder.uiAEonIMG 
-        if uiAEoffIMG == None : uiAEoffIMG = colorStudioUIBuilder.CSUIBuilder.uiAEoffIMG
+        if uiAEonIMG is None:
+            uiAEonIMG = colorStudioUIBuilder.CSUIBuilder.uiAEonIMG
+        if uiAEoffIMG is None:
+            uiAEoffIMG = colorStudioUIBuilder.CSUIBuilder.uiAEoffIMG
 
         # create automatic exposure (switch) + control button
-        self._aeButton =  CSQIMGSwitchButton(uiAEonIMG,uiAEoffIMG,(50,50),name="switch AE")
+        self._aeButton = CSQIMGSwitchButton(uiAEonIMG, uiAEoffIMG, (50, 50), name="switch AE")
 
         self._ieButton = QPushButton("EV (+)")
         self._deButton = QPushButton("EV (-)")
@@ -355,86 +356,89 @@ class CSQAEControlLayout(QHBoxLayout):
         self._deButton.clicked.connect(self.decExposure)
 
     def switch_on_off(self):
-        self._on_off = not(self._on_off)
-        print("DEBUG::CSQAEControlLayout.switch_on_off::",self._on_off)
+        self._on_off = not self._on_off
+        print("DEBUG::CSQAEControlLayout.switch_on_off::", self._on_off)
         # update exposure value according on/off
-        if self._on_off : exposure = self._exposureON
-        else : exposure = self._exposureOFF
+        if self._on_off:
+            exposure = self._exposureON
+        else:
+            exposure = self._exposureOFF
         expoString = "{:+.2f}".format(exposure)
         self._exposureValueLabel.setText(expoString)
 
         # send event to controller
-        self._controller._event(self,[0,self._on_off])
+        self._controller._event(self, [0, self._on_off])
 
     def incExposure(self):
         if self._on_off:
             # autoExposure on
             self._exposureON = self._exposureON + self._step
-            if self._exposureON > self._max: self._exposureON = self._max
+            if self._exposureON > self._max:
+                self._exposureON = self._max
             exposure = self._exposureON
             expoString = "{:+.2f}".format(exposure)
             self._exposureValueLabel.setText(expoString)
-            # send event to controller
-            self._controller._event(self,[1,exposure])
+            self._controller._event(self, [1, exposure])
         else:
-			# autoExposure off
+            # autoExposure off
             self._exposureOFF = self._exposureOFF + self._step
-            if self._exposureOFF > self._max: self._exposureOFF = self._max
+            if self._exposureOFF > self._max:
+                self._exposureOFF = self._max
             exposure = self._exposureOFF
             expoString = "{:+.2f}".format(exposure)
             self._exposureValueLabel.setText(expoString)
-            # send event to controller
-            self._controller._event(self,[1,exposure])
+            self._controller._event(self, [1, exposure])
 
     def decExposure(self):
         if self._on_off:
             # autoExposure on
             self._exposureON = self._exposureON - self._step
-            if self._exposureON < -self._max: self._exposureON = -self._max
+            if self._exposureON < -self._max:
+                self._exposureON = -self._max
             exposure = self._exposureON
             expoString = "{:+.2f}".format(exposure)
             self._exposureValueLabel.setText(expoString)
-            # send event to controller
-            self._controller._event(self,[-1,exposure])
+            self._controller._event(self, [-1, exposure])
         else:
-			# autoExposure off
+            # autoExposure off
             self._exposureOFF = self._exposureOFF - self._step
-            if self._exposureOFF < - self._max: self._exposureOFF = - self._max
+            if self._exposureOFF < -self._max:
+                self._exposureOFF = -self._max
             exposure = self._exposureOFF
             expoString = "{:+.2f}".format(exposure)
             self._exposureValueLabel.setText(expoString)
-            # send event to controller
-            self._controller._event(self,[-1,exposure])
-# ----------------------------------------------------------------------------------		
+            self._controller._event(self, [-1, exposure])
+
+# ----------------------------------------------------------------------------------
 class CSDisplayWidget(QWidget):
-    def __init__(self,controller, title = None):
+    def __init__(self, controller, title=None):
         super().__init__()
         self._controller = controller
-        if not title:
-            self.setWindowTitle("Color Studio - RC 2019")
-        self._label =  QLabel(self)
+        self.setWindowTitle(title or "Color Studio - RC 2019")
+        self._label = QLabel(self)
 
         # setFirstPixmap
-        w,h = colorStudioUIBuilder.CSUIBuilder.template['uiRenderWidget_size']
-        img = (np.ones((h,w,3))*255).astype(np.uint8)
+        w, h = colorStudioUIBuilder.CSUIBuilder.template['uiRenderWidget_size']
+        img = (np.ones((h, w, 3)) * 255).astype(np.uint8)
         height, width, channel = img.shape
         bytesPerLine = channel * width
-        qImg = QImage(img, width, height, bytesPerLine, QImage.Format_RGB888)
+        qImg = QImage(img.tobytes(), width, height, bytesPerLine, QImage.Format.Format_RGB888)
         pixmap = QPixmap.fromImage(qImg)
         self._label.setPixmap(pixmap)
 
-    def _update(self,imgDouble):
-        img = (imgDouble*255).astype(np.uint8)
+    def _update(self, imgDouble):
+        img = (imgDouble * 255).astype(np.uint8)
         height, width, channel = img.shape
         bytesPerLine = channel * width
-        qImg = QImage(img, width, height, bytesPerLine, QImage.Format_RGB888)
+        qImg = QImage(img.tobytes(), width, height, bytesPerLine, QImage.Format.Format_RGB888)
         pixmap = QPixmap.fromImage(qImg)
         self._label.setPixmap(pixmap)
-# ----------------------------------------------------------------------------------		
+
+# ----------------------------------------------------------------------------------
 class CSDisplayColorWheel(QWidget):
-    def __init__(self,controller, width=480):
+    def __init__(self, controller, width=480):
         super().__init__()
-        # controller 
+        # controller
         self._controller = controller
 
         # size
@@ -443,50 +447,52 @@ class CSDisplayColorWheel(QWidget):
 
         # title and window size
         self.setWindowTitle("Color Wheel:: __ no active light __")
-        # self.setGeometry(1440,540,self._width,self._height)
 
         # image (color wheel)
-        colorWheelImg = (colorStudioUtils.colorWheel(self._width//2)*255).astype(np.uint8)
+        colorWheelImg = (colorStudioUtils.colorWheel(self._width // 2) * 255).astype(np.uint8)
         height, width, channel = colorWheelImg.shape
         bytesPerLine = channel * width
-        qImg = QImage(colorWheelImg, width, height, bytesPerLine, QImage.Format_RGB888)
+        qImg = QImage(colorWheelImg.tobytes(), width, height, bytesPerLine, QImage.Format.Format_RGB888)
 
         # store pixmap in object
         self._pixmap = QPixmap.fromImage(qImg)
-        self._label =  QLabel(self)
-        self._label.setPixmap(self._pixmap)
-
+        self._label = QLabel(self)
         self._label.setPixmap(self._pixmap)
 
         # mouse
-        self.setMouseTracking(True)  
+        self.setMouseTracking(True)
 
-    def mousePressEvent(self,e): self.mouseMoveEvent(e)
+    def mousePressEvent(self, e):
+        self.mouseMoveEvent(e)
 
     def mouseMoveEvent(self, e):
         # mouse position
-        x,y = e.x(), e.y()
+        x, y = int(e.position().x()), int(e.position().y())
 
         # hsv color
-        hsv_array = np.zeros([1,1,3])
+        hsv_array = np.zeros([1, 1, 3])
 
-        if colorStudioUtils.inRange2D([x,y],[0,0], [self._width,self._height]):
+        if colorStudioUtils.inRange2D([x, y], [0, 0], [self._width, self._height]):
             # compute local coordinate
-            w,h = self._width,  self._height
-            x_local = 2*(x-w/2)/w
-            y_local = 2*(y-h/2)/h
-            r = math.sqrt(x_local*x_local+y_local*y_local)
-                        
-            if r<0.5: hsv_array[0,0,:] = [0.0,0.0,1.0]
-            elif r<1.0:	hsv_array[0,0,:] = [(math.atan2(x_local,y_local)+math.pi)/(2*math.pi),1.0,1.0]
-            else: hsv_array[0,0,:] = [0.0,0.0,0.01]
+            w, h = self._width, self._height
+            x_local = 2 * (x - w / 2) / w
+            y_local = 2 * (y - h / 2) / h
+            r = math.sqrt(x_local * x_local + y_local * y_local)
 
-            rgb_hsv_array = skimage.color.hsv2rgb(hsv_array)   
-            rgb = rgb_hsv_array[0,0]
+            if r < 0.5:
+                hsv_array[0, 0, :] = [0.0, 0.0, 1.0]
+            elif r < 1.0:
+                hsv_array[0, 0, :] = [(math.atan2(x_local, y_local) + math.pi) / (2 * math.pi), 1.0, 1.0]
+            else:
+                hsv_array[0, 0, :] = [0.0, 0.0, 0.01]
+
+            rgb_hsv_array = skimage.color.hsv2rgb(hsv_array)
+            rgb = rgb_hsv_array[0, 0]
 
             # controller
-            self._controller._event(self,[0,rgb])
-# ----------------------------------------------------------------------------------		
+            self._controller._event(self, [0, rgb])
+
+# ----------------------------------------------------------------------------------
 class CSDisplayControls(QWidget):
     def __init__(self):
         super().__init__()
@@ -496,32 +502,33 @@ class CSDisplayControls(QWidget):
         # add Vertical layout
         self._layout = QVBoxLayout()
         self.setLayout(self._layout)
-# ----------------------------------------------------------------------------------		
+
+# ----------------------------------------------------------------------------------
 class CSQSaturationLayout(QVBoxLayout):
 
-    def __init__(self,controller,range=100):
+    def __init__(self, controller, range=100):
         """
-        widget that controls exposure, color and position of light
+        widget that controls saturation
         @params:
             controller  - Required                                  (CSSaturationController)
             range       - Optional  :  range [-range,range]         (Float)
-       """
+        """
         super().__init__()
-        # controller 
+        # controller
         self._controller = controller
 
         # control of saturation
-        self._linearSaturation 	= 0.0
-        self._gammaSaturation 	= 0.0
-        self._range 	        = range
+        self._linearSaturation = 0.0
+        self._gammaSaturation = 0.0
+        self._range = range
 
-        # create 
-        self._linearSaturationValueLabel = QLabel("linear saturation: "+"{:+.0f}".format(self._linearSaturation))
-        self._sliderLinearSaturation = QSlider(QtCore.Qt.Horizontal)
+        # create
+        self._linearSaturationValueLabel = QLabel("linear saturation: " + "{:+.0f}".format(self._linearSaturation))
+        self._sliderLinearSaturation = QSlider(QtCore.Qt.Orientation.Horizontal)
         self._sliderLinearSaturation.setValue(50)
 
-        self._gammaSaturationValueLabel = QLabel("gamma saturation: "+"{:+.0f}".format(self._gammaSaturation))
-        self._sliderGammaSaturation = QSlider(QtCore.Qt.Horizontal)
+        self._gammaSaturationValueLabel = QLabel("gamma saturation: " + "{:+.0f}".format(self._gammaSaturation))
+        self._sliderGammaSaturation = QSlider(QtCore.Qt.Orientation.Horizontal)
         self._sliderGammaSaturation.setValue(50)
 
         # add  to layout
@@ -531,16 +538,15 @@ class CSQSaturationLayout(QVBoxLayout):
         self.addWidget(self._sliderGammaSaturation)
 
         # slider
-        self._sliderLinearSaturation.valueChanged.connect(self.sliderLinearSaturationValueChanged) 
-        self._sliderGammaSaturation.valueChanged.connect(self.sliderGammaSaturationValueChanged) 
+        self._sliderLinearSaturation.valueChanged.connect(self.sliderLinearSaturationValueChanged)
+        self._sliderGammaSaturation.valueChanged.connect(self.sliderGammaSaturationValueChanged)
 
-    def sliderLinearSaturationValueChanged(self,value): 
-        self._linearSaturation = (2*value/100.0 -1.0)*self._range
-        self._linearSaturationValueLabel.setText("saturation: "+"{:+.0f}".format(self._linearSaturation))
-        self._controller._event(self,[0,self._linearSaturation])
+    def sliderLinearSaturationValueChanged(self, value):
+        self._linearSaturation = (2 * value / 100.0 - 1.0) * self._range
+        self._linearSaturationValueLabel.setText("saturation: " + "{:+.0f}".format(self._linearSaturation))
+        self._controller._event(self, [0, self._linearSaturation])
 
-    def sliderGammaSaturationValueChanged(self,value): 
-        self._gammaSaturation = (2*value/100.0 -1.0)*self._range
-        self._gammaSaturationValueLabel.setText("gamma saturation: "+"{:+.0f}".format(self._gammaSaturation))
-        self._controller._event(self,[1,self._gammaSaturation])
-# ----------------------------------------------------------------------------------
+    def sliderGammaSaturationValueChanged(self, value):
+        self._gammaSaturation = (2 * value / 100.0 - 1.0) * self._range
+        self._gammaSaturationValueLabel.setText("gamma saturation: " + "{:+.0f}".format(self._gammaSaturation))
+        self._controller._event(self, [1, self._gammaSaturation])

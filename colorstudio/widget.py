@@ -21,9 +21,9 @@ from PyQt6.QtGui import QIcon, QPixmap, QImage, QSurfaceFormat
 from PyQt6 import QtCore
 from PyQt6.QtOpenGLWidgets import QOpenGLWidget
 
-import colorStudioModel
-import colorStudioUtils
-import colorStudioUIBuilder
+from colorstudio import model as colorStudioModel
+from colorstudio import utils as colorStudioUtils
+from colorstudio import ui_builder as colorStudioUIBuilder
 
 # functions
 # ----------------------------------------------------------------------------------

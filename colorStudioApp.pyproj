@@ -4,7 +4,7 @@
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>5769d8e7-34c4-46c9-a1fb-b6ff34fdb659</ProjectGuid>
     <ProjectHome>.</ProjectHome>
-    <StartupFile>colorStudioApp.py</StartupFile>
+    <StartupFile>main.py</StartupFile>
     <SearchPath>
     </SearchPath>
     <WorkingDirectory>.</WorkingDirectory>
@@ -21,22 +21,26 @@
     <EnableUnmanagedDebugging>false</EnableUnmanagedDebugging>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="colorStudioApp.py" />
-    <Compile Include="colorStudioController.py">
+    <Compile Include="main.py" />
+    <Compile Include="colorstudio\__init__.py" />
+    <Compile Include="colorstudio\controller.py">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="colorStudioModel.py">
+    <Compile Include="colorstudio\model.py">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="colorStudioUIBuilder.py">
+    <Compile Include="colorstudio\ui_builder.py">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="colorStudioUtils.py">
+    <Compile Include="colorstudio\utils.py">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="colorStudioWidget.py">
+    <Compile Include="colorstudio\widget.py">
       <SubType>Code</SubType>
     </Compile>
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="colorstudio\" />
   </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\Python Tools\Microsoft.PythonTools.targets" />
   <!-- Uncomment the CoreCompile target to enable the Build command in

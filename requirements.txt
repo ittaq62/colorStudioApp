@@ -1,0 +1,5 @@
+PyQt6
+moderngl
+numpy
+imageio
+scikit-image

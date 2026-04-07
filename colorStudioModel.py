@@ -45,7 +45,7 @@ class Images:
 
     def loadImages(self, scale=0.5):
         for i in range(self._nbImage):
-            printProgressBar(i, self._nbImage - 1, prefix='', suffix='', decimals=1, length=50, fill='█')
+            printProgressBar(i, self._nbImage - 1, prefix='', suffix='', decimals=1, length=50, fill='#')
 
             # create formated filename
             iStr = str(i).zfill(self._nbDigit)

@@ -2,4 +2,16 @@
 
 ## Mise à jour vers Python 3.13 et PyQt6
 
-Le code original de ColorStudio datait de 2019 et reposait sur Python 3.8, PyQt5 et la bibliothèque `easygui`. Pour le remettre en état de fonctionnement, nous avons migré l'ensemble du projet vers **Python 3.13**, la dernière version stable disponible sur la machine de développement (détectée via `python3 --version`). Ce choix est cohérent avec la consigne du cahier des charges qui demande Python 3.12 ou supérieur : Python 3.13 offre des améliorations de performances, un meilleur support des types, et bénéficie des correctifs de sécurité les plus récents, ce qui correspond aux exigences de qualité logicielle du projet. La migration a nécessité plusieurs interventions : remplacement de tous les imports `PyQt5` par `PyQt6` avec adaptation des énumérations désormais qualifiées (`Qt.Orientation.Horizontal`, `QImage.Format.Format_RGB888`), suppression du widget `QGLWidget` (supprimé dans Qt6) au profit de `QOpenGLWidget`, mise à jour de l'API `moderngl` 5.x (`simple_vertex_array` → `vertex_array` avec format explicite `'2f 4f'`), et remplacement de `easygui` — bibliothèque abandonnée — par `QFileDialog` natif PyQt6. L'appel `app.exec_()` hérité de Qt4 a également été corrigé en `app.exec()`. En parallèle, les fichiers sources présentaient une indentation mixte tabs/espaces incompatible avec Python 3, qui lève une `TabError` à l'exécution : l'ensemble du code a été reformaté avec une indentation uniforme à 4 espaces. Trois bugs algorithmiques ont aussi été corrigés au passage : une faute de frappe `self.ImagesArray` au lieu de `self._ImagesArray` dans `Light.toXML()`, une méthode `__int__` au lieu de `__init__` dans la classe `PPClip`, et une variable `imgOut` non définie dans la méthode `PPClip.postProcess`.
+-> migration de l'ensemble du projet vers Python 3.13 car dernière version dispo sur la machine (avec `python3 --version`)
+-> remplacement de tous les imports `PyQt5` par `PyQt6` (`Qt.Orientation.Horizontal`, `QImage.Format.Format_RGB888`)
+-> suppression du widget `QGLWidget` (supprimé dans Qt6) pour `QOpenGLWidget`
+-> mise à jour de l'API `moderngl`  
+-> remplacement de `easygui` par `QFileDialog` natif PyQt6. L'appel `app.exec_()`
+-> reformatage du code avec une indentation
+
+## Nettoyage et suppression des imports inutilisés
+
+-> suppression de tous les imports obsolètes et inutilisés
+----> dans `colorStudioController.py` : `imageio`, `moderngl`, `numpy` et `skimage`
+----> dans `colorStudioUIBuilder.py` : `sys`, `imageio`, `moderngl` et `numpy`
+----> dans `colorStudioWidget.py` où `imageio` était importé sans jamais être appelé.

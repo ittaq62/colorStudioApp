@@ -2,6 +2,8 @@
 """
 Tests pour colorstudio.model
 """
+import os
+import tempfile
 import unittest
 import numpy as np
 
@@ -95,6 +97,56 @@ class TestScene(unittest.TestCase):
     def test_get_light_by_name_not_found(self):
         scene = model.Scene()
         self.assertIsNone(scene.getLightByName("inconnue"))
+
+
+class TestSceneFromXML(unittest.TestCase):
+    """tests de Scene.fromXML pour le mode HDR"""
+
+    # XML minimal : 1 light avec max="0" pour ne charger aucune image
+    _XML_TEMPLATE = (
+        '<?xml version="1.0"?>\n'
+        '<LIGHTSETTUP{hdrAttr}>\n'
+        '  <LIGHTS>\n'
+        '    <LIGHT name="L0">\n'
+        '      <INPUTFILE ext=".jpg" min="0" max="0" digit="4">./fake/no_</INPUTFILE>\n'
+        '      <IDXPOS>0</IDXPOS>\n'
+        '      <EXP>0.0</EXP>\n'
+        '      <COLOR format="float"><R>1.0</R><G>1.0</G><B>1.0</B></COLOR>\n'
+        '    </LIGHT>\n'
+        '  </LIGHTS>\n'
+        '</LIGHTSETTUP>\n'
+    )
+
+    def setUp(self):
+        model.Light.lightNb = 0
+        self._tmpFiles = []
+
+    def tearDown(self):
+        for p in self._tmpFiles:
+            if os.path.exists(p):
+                os.unlink(p)
+
+    def _writeXml(self, hdrAttr):
+        fd, path = tempfile.mkstemp(suffix=".xml")
+        os.close(fd)
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(self._XML_TEMPLATE.format(hdrAttr=hdrAttr))
+        self._tmpFiles.append(path)
+        return path
+
+    def test_default_scene_is_ldr(self):
+        # pas d'attribut hdr -> _hdr reste a False
+        path = self._writeXml(hdrAttr="")
+        scene = model.Scene()
+        scene.fromXML(path)
+        self.assertFalse(scene._hdr)
+
+    def test_xml_hdr_true(self):
+        # attribut hdr="true" -> _hdr passe a True
+        path = self._writeXml(hdrAttr=' hdr="true"')
+        scene = model.Scene()
+        scene.fromXML(path)
+        self.assertTrue(scene._hdr)
 
 
 if __name__ == "__main__":

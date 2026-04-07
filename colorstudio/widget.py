@@ -357,7 +357,6 @@ class CSQAEControlLayout(QHBoxLayout):
 
     def switch_on_off(self):
         self._on_off = not self._on_off
-        print("DEBUG::CSQAEControlLayout.switch_on_off::", self._on_off)
         # update exposure value according on/off
         if self._on_off:
             exposure = self._exposureON

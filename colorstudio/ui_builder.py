@@ -15,10 +15,10 @@ from PyQt6.QtWidgets import QApplication, QWidget, QLabel, QPushButton, QVBoxLay
 from PyQt6.QtGui import QIcon, QPixmap, QImage
 from PyQt6 import QtCore
 
-import colorStudioModel
-import colorStudioWidget
-import colorStudioController
-import colorStudioUtils
+from colorstudio import model as colorStudioModel
+from colorstudio import widget as colorStudioWidget
+from colorstudio import controller as colorStudioController
+from colorstudio import utils as colorStudioUtils
 
 # ----------------------------------------------------------------------------------
 class CSUIBuilder:

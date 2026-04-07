@@ -18,9 +18,9 @@ import sys
 
 from PyQt6.QtWidgets import QApplication, QFileDialog
 
-import colorStudioModel
-import colorStudioWidget
-import colorStudioUIBuilder
+from colorstudio import model as colorStudioModel
+from colorstudio import widget as colorStudioWidget
+from colorstudio import ui_builder as colorStudioUIBuilder
 
 # ----------------------------------------------------------------------------------
 print("ColorStudio - Rémi Cozot - 2019")

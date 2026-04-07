@@ -122,16 +122,10 @@ class Light:
             # get current active image
             img = self._ImagesArray._images[self._imageIdx]
 
-            # new image
-            imgOut = np.zeros(img.shape)
-
-            # color filter
-            imgOut[:, :, 0] = img[:, :, 0] * self._npColorRGB[0]
-            imgOut[:, :, 1] = img[:, :, 1] * self._npColorRGB[1]
-            imgOut[:, :, 2] = img[:, :, 2] * self._npColorRGB[2]
-
-            # exposure
-            imgOut = imgOut * math.pow(2, self._exposure)
+            # color filter + exposure en une seule multiplication broadcast
+            # numpy diffuse (3,) sur (h, w, 3) -> 1 seule allocation au lieu de 3
+            factor = self._npColorRGB * math.pow(2, self._exposure)
+            imgOut = img * factor
 
             self._currentImage = imgOut
 
@@ -207,20 +201,21 @@ class Scene:
         return returnLight
 
     def render(self):
-        # create image to store render image
-        imgOut = np.zeros(self._lights[0]._ImagesArray._images[0].shape)
+        # init avec une copie du premier light pour eviter np.zeros + une addition
+        # .copy() pour ne pas modifier le cache _currentImage du light
+        imgOut = self._lights[0].render().copy()
 
-        # render all lights
-        for light in self._lights:
-            imgOut = imgOut + light.render()
+        # ajout des autres lights en place (evite de creer une nouvelle array a chaque iter)
+        for light in self._lights[1:]:
+            imgOut += light.render()
 
         # applyPostProcess
         for pp in self._postProcesses:
             imgOut = pp.postProcess(imgOut)
 
         if not self._hdr:
-            # clipping values
-            imgOut = np.clip(imgOut, 0.0, 1.0)
+            # clipping values en place
+            np.clip(imgOut, 0.0, 1.0, out=imgOut)
         return imgOut
 
     def toXML(self):

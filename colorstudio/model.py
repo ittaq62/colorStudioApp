@@ -233,6 +233,11 @@ class Scene:
         # parse XML file
         xdoc = miniXml.parse(xmlFile)
 
+        # mode HDR : attribut optionnel sur la racine, ex: <LIGHTSETTUP hdr="true">
+        root = xdoc.documentElement
+        if root.hasAttribute('hdr'):
+            self._hdr = root.getAttribute('hdr').lower() == 'true'
+
         # recover <LIGHT> tag
         xLights = xdoc.getElementsByTagName('LIGHT')
 

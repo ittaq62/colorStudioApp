@@ -13,6 +13,7 @@ import sys
 import moderngl
 
 import math
+import numpy as np
 import skimage
 
 from PyQt6.QtWidgets import QApplication, QWidget, QLabel, QPushButton, QVBoxLayout, QHBoxLayout, QSlider

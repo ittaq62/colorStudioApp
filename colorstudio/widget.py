@@ -17,11 +17,12 @@ import numpy as np
 import skimage
 
 from PyQt6.QtWidgets import QApplication, QWidget, QLabel, QPushButton, QVBoxLayout, QHBoxLayout, QSlider
-from PyQt6.QtGui import QIcon, QPixmap, QImage, QSurfaceFormat
+from PyQt6.QtGui import QPixmap, QImage, QSurfaceFormat
+#from PyQt6.QtGui import QIcon  # plus utilise dans ce fichier
 from PyQt6 import QtCore
 from PyQt6.QtOpenGLWidgets import QOpenGLWidget
 
-from colorstudio import model as colorStudioModel
+#from colorstudio import model as colorStudioModel  # plus utilise dans ce fichier
 from colorstudio import utils as colorStudioUtils
 from colorstudio import ui_builder as colorStudioUIBuilder
 
@@ -356,7 +357,6 @@ class CSQAEControlLayout(QHBoxLayout):
 
     def switch_on_off(self):
         self._on_off = not self._on_off
-        print("DEBUG::CSQAEControlLayout.switch_on_off::", self._on_off)
         # update exposure value according on/off
         if self._on_off:
             exposure = self._exposureON

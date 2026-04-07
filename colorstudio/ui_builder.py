@@ -11,14 +11,16 @@ Color Studio - Rémi Cozot 2019
 
 import skimage
 
-from PyQt6.QtWidgets import QApplication, QWidget, QLabel, QPushButton, QVBoxLayout, QHBoxLayout, QSlider
-from PyQt6.QtGui import QIcon, QPixmap, QImage
-from PyQt6 import QtCore
+from PyQt6.QtWidgets import QLabel
+#from PyQt6.QtWidgets import QApplication, QWidget, QPushButton, QVBoxLayout, QHBoxLayout, QSlider  # plus utilises dans ce fichier
+from PyQt6.QtGui import QIcon
+#from PyQt6.QtGui import QPixmap, QImage  # plus utilises dans ce fichier
+#from PyQt6 import QtCore  # plus utilise dans ce fichier
 
 from colorstudio import model as colorStudioModel
 from colorstudio import widget as colorStudioWidget
 from colorstudio import controller as colorStudioController
-from colorstudio import utils as colorStudioUtils
+#from colorstudio import utils as colorStudioUtils  # plus utilise dans ce fichier
 
 # ----------------------------------------------------------------------------------
 class CSUIBuilder:

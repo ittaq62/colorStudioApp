@@ -16,7 +16,9 @@ Color Studio - Rémi Cozot 2019
 # ----------------------------------------------------------------------------------
 import sys
 
-from PyQt6.QtWidgets import QApplication, QFileDialog
+import easygui
+
+from PyQt6.QtWidgets import QApplication
 
 import colorStudioModel
 import colorStudioWidget

@@ -30,9 +30,9 @@ py -3.13 main.py
 ```
 
 Au demarrage une fenetre demande de selectionner un fichier XML de scene
-(par defaut `xml-2019-6-7-22-47-1.xml`). Le XML decrit chaque lumiere :
-le set d'images source, la position de la lumiere dans le set, l'exposition
-et la couleur RGB.
+(par defaut `xml-postProcess-test.xml` qui marche avec les images presentes
+dans le repo). Le XML decrit chaque lumiere : le set d'images source,
+la position de la lumiere dans le set, l'exposition et la couleur RGB.
 
 ## Structure du projet
 

@@ -287,7 +287,6 @@ class Scene:
                 filenameLight.update({imagesFile: [light]})
 
         # recover <POSTPROCESS> tag
-        print("<ColorStudio: DEBUG>")
         xPosts = xdoc.getElementsByTagName('POSTPROCESS')
 
         # explore postprocess (in order they will be applyed in the same order (!))
@@ -301,7 +300,6 @@ class Scene:
                         # <CHROMA type="AWB"|"SATURATION">
                         # get type attribute value
                         typeString = child.attributes['type'].value
-                        print('<CHROMA type="', typeString, '">')
                         if typeString == 'AWB':
                             pass
                         if typeString == 'saturation':

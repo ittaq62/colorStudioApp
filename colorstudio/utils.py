@@ -12,7 +12,7 @@ import math
 import numpy as np
 import imageio.v2 as imageio
 import skimage
-from skimage import transform
+#from skimage import transform  # redondant avec import skimage (skimage.transform.rescale est utilise plus bas)
 
 # ----------------------------------------------------------------------------------
 # functions

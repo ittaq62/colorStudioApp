@@ -17,11 +17,12 @@ import numpy as np
 import skimage
 
 from PyQt6.QtWidgets import QApplication, QWidget, QLabel, QPushButton, QVBoxLayout, QHBoxLayout, QSlider
-from PyQt6.QtGui import QIcon, QPixmap, QImage, QSurfaceFormat
+from PyQt6.QtGui import QPixmap, QImage, QSurfaceFormat
+#from PyQt6.QtGui import QIcon  # plus utilise dans ce fichier
 from PyQt6 import QtCore
 from PyQt6.QtOpenGLWidgets import QOpenGLWidget
 
-from colorstudio import model as colorStudioModel
+#from colorstudio import model as colorStudioModel  # plus utilise dans ce fichier
 from colorstudio import utils as colorStudioUtils
 from colorstudio import ui_builder as colorStudioUIBuilder
 

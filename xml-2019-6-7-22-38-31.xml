@@ -31,7 +31,7 @@
 </COLOR>
 </LIGHT>
 <LIGHT name="Light3">
-<INPUTFILE ext=".jpg" min="0" max="100"  digit="4" >./images/museum2x2/light02_</INPUTFILE>
+<INPUTFILE ext=".jpg" min="0" max="100"  digit="4" >./images/museum2x2/light01_</INPUTFILE>
 <IDXPOS>69</IDXPOS>
 <EXP>-1.2</EXP>
 <COLOR format="float">
@@ -41,7 +41,7 @@
 </COLOR>
 </LIGHT>
 <LIGHT name="Light4">
-<INPUTFILE ext=".jpg" min="0" max="100"  digit="4" >./images/museum2x2/light02_</INPUTFILE>
+<INPUTFILE ext=".jpg" min="0" max="100"  digit="4" >./images/museum2x2/light01_</INPUTFILE>
 <IDXPOS>44</IDXPOS>
 <EXP>-1.2</EXP>
 <COLOR format="float">
@@ -51,7 +51,7 @@
 </COLOR>
 </LIGHT>
 <LIGHT name="Light5">
-<INPUTFILE ext=".jpg" min="0" max="100"  digit="4" >./images/museum2x2/light02_</INPUTFILE>
+<INPUTFILE ext=".jpg" min="0" max="100"  digit="4" >./images/museum2x2/light01_</INPUTFILE>
 <IDXPOS>17</IDXPOS>
 <EXP>-0.9999999999999996</EXP>
 <COLOR format="float">

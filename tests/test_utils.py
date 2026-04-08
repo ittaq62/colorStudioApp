@@ -56,5 +56,34 @@ class TestLoadImage(unittest.TestCase):
         self.assertGreater(img.max(), 1.0)
 
 
+class TestToneMap(unittest.TestCase):
+    """tests de toneMap (Reinhard x / (1+x))"""
+
+    def test_zero_stays_zero(self):
+        # un pixel noir doit rester noir
+        img = np.zeros((2, 2, 3), dtype=np.float64)
+        out = utils.toneMap(img)
+        self.assertTrue(np.allclose(out, 0.0))
+
+    def test_one_becomes_half(self):
+        # 1.0 / (1 + 1.0) = 0.5
+        img = np.ones((2, 2, 3), dtype=np.float64)
+        out = utils.toneMap(img)
+        self.assertTrue(np.allclose(out, 0.5))
+
+    def test_large_values_stay_below_one(self):
+        # meme une valeur HDR enorme doit rester strictement < 1
+        img = np.ones((2, 2, 3), dtype=np.float64) * 1000.0
+        out = utils.toneMap(img)
+        self.assertTrue(np.all(out < 1.0))
+        self.assertTrue(np.all(out > 0.99))  # 1000/1001 ~ 0.999
+
+    def test_negative_values_clipped_to_zero(self):
+        # des valeurs negatives (possibles apres post-process) -> 0
+        img = np.ones((2, 2, 3), dtype=np.float64) * -0.5
+        out = utils.toneMap(img)
+        self.assertTrue(np.allclose(out, 0.0))
+
+
 if __name__ == "__main__":
     unittest.main()

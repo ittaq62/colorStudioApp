@@ -379,12 +379,10 @@ class Saturation(PostProcess):
             if self._gammaSaturation > 0.0:
                 # gamma value
                 gamma = 1 + (self._gammaSaturation / 25)
-                print("Saturation: S^(1/gamma) << gamma=", gamma)
                 new_satChannel = np.power(satChannel, 1 / gamma)
             elif self._gammaSaturation < 0.0:
                 # gamma value
                 gamma = 1 + (-self._gammaSaturation / 25)
-                print("Saturation: S^(gamma) << gamma=", gamma)
                 new_satChannel = np.power(satChannel, gamma)
             imgHSV[:, :, 1] = new_satChannel[:, :]
             # back to rgb
@@ -417,6 +415,10 @@ class AE_Ymean(PostProcess):
         if self._on_off:
             # compute mean Y (Luminance)
             ymeanb = image2Ymean(img)
+            # protection division par zero : une image presque noire donnait
+            # ymeanb ~ 0 et faisait exploser le gain (ou un NaN)
+            if ymeanb < 1e-6:
+                ymeanb = 1e-6
             imgOut = img * (self._Ytarget / ymeanb) * math.pow(2, self._exposureON)
         else:
             imgOut = img * math.pow(2, self._exposureOFF)

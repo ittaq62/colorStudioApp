@@ -18,9 +18,9 @@ import sys
 
 from PyQt6.QtWidgets import QApplication, QFileDialog
 
-import colorStudioModel
-import colorStudioWidget
-import colorStudioUIBuilder
+from colorstudio import model as colorStudioModel
+from colorstudio import widget as colorStudioWidget
+from colorstudio import ui_builder as colorStudioUIBuilder
 
 # ----------------------------------------------------------------------------------
 print("ColorStudio - Rémi Cozot - 2019")
@@ -35,7 +35,9 @@ if not app:
     app = QApplication(sys.argv)
 
 # select input file name
-defaultFilename = "./xml-2019-6-7-22-47-1.xml"
+# defaut : scene legere qui n'utilise que light01_* (les seuls images presentes dans le repo)
+# l'ancien defaut xml-2019-6-7-22-47-1.xml referencait light02_* qui manque -> crash si on annule la dialog
+defaultFilename = "./xml-postProcess-test.xml"
 inputFilename, _ = QFileDialog.getOpenFileName(
     None,
     "Color Studio — select light-setup file",

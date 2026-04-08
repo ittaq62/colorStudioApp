@@ -10,14 +10,14 @@ Color Studio - Rémi Cozot 2019
 # ----------------------------------------------------------------------------------
 import math
 import numpy as np
-import imageio
+import imageio.v2 as imageio
 import skimage
-from skimage import transform
+#from skimage import transform  # redondant avec import skimage (skimage.transform.rescale est utilise plus bas)
 
 # ----------------------------------------------------------------------------------
 # functions
 # ----------------------------------------------------------------------------------
-def printProgressBar(iteration, total, prefix='', suffix='', decimals=1, length=100, fill='█'):
+def printProgressBar(iteration, total, prefix='', suffix='', decimals=1, length=100, fill='#'):
     """
     Call in a loop to create terminal progress bar
     @params:
@@ -40,11 +40,14 @@ def printProgressBar(iteration, total, prefix='', suffix='', decimals=1, length=
 # ----------------------------------------------------------------------------------
 def loadImage(filename, scale=0.5):
     """
-    load image from image filename and convert to double in [0,1]
+    load image from image filename and convert to double
+    LDR (uint8/uint16) -> normalised in [0,1]
+    HDR (float .hdr/.exr) -> values kept as-is (can exceed 1.0)
     @params:
         filename   - Required  : image filename (Str)
         scale      - Optional  : scaling factor [=0.5] (Float)
     """
+<<<<<<< HEAD:colorStudioUtils.py
     try:
         img = imageio.imread(filename)
         imgDouble = 1.0 * img / 255.0
@@ -55,6 +58,18 @@ def loadImage(filename, scale=0.5):
     except Exception as e:
         print(f"\n[ERROR] Could not load image {filename}: {e}")
         return np.zeros((10, 10, 3))
+=======
+    img = imageio.imread(filename)
+
+    # normalise selon le dtype d'origine
+    if img.dtype == np.uint8:
+        imgDouble = img.astype(np.float64) / 255.0
+    elif img.dtype == np.uint16:
+        imgDouble = img.astype(np.float64) / 65535.0
+    else:
+        # deja en float (HDR : .hdr, .exr) -> on garde tel quel
+        imgDouble = img.astype(np.float64)
+>>>>>>> a8add8f2f87471077804acc8dd663285b817cf84:colorstudio/utils.py
 
     if scale != 1.0:
         imgDouble = skimage.transform.rescale(imgDouble, scale, anti_aliasing=True, channel_axis=2)

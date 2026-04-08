@@ -34,6 +34,17 @@ Au demarrage une fenetre demande de selectionner un fichier XML de scene
 dans le repo). Le XML decrit chaque lumiere : le set d'images source,
 la position de la lumiere dans le set, l'exposition et la couleur RGB.
 
+### Mode HDR
+
+Deux manieres d'activer le mode HDR :
+- dans le fichier XML, ajouter l'attribut `hdr="true"` sur la racine :
+  `<LIGHTSETTUP hdr="true">`. Un exemple est fourni dans `xml-hdr-demo.xml`.
+- dans l'interface, cocher la case "HDR mode" du panneau de controle.
+
+En mode HDR les valeurs RGB du rendu ne sont plus clippees a 1.0.
+L'affichage applique un tone mapping de Reinhard (`x / (1+x)`) pour eviter
+une image cramee.
+
 ## Structure du projet
 
 ```
@@ -46,6 +57,7 @@ colorstudio/        package principal
     utils.py        chargement images, helpers
 tests/              tests unitaires
     test_model.py
+    test_utils.py
 main.py             point d'entree
 images/             sets d'images source
 xml-*.xml           scenes pre-configurees

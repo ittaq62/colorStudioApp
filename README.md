@@ -70,3 +70,15 @@ Tests unitaires avec `unittest` (lib standard, pas de dependance) :
 ```
 py -3.13 -m unittest discover -s tests -v
 ```
+
+## Documentation
+
+Documentation detaillee dans `docs/` :
+- `docs/xml-format.md` : format XML des scenes (balises, attribut `hdr`, exemples)
+- `docs/architecture.md` : schema MVC + flux de donnees render
+- `docs/user-guide.md` : guide utilisateur (UI, panneau de controle, comment ajouter une lumiere)
+
+Voir aussi :
+- `CHANGELOG.md` : liste des modifs par rapport a la version 2019
+- `JOURNAL.md` : journal de bord de la reprise SAE 6A
+- `Documentation.md` : notes de migration techniques (PyQt5 -> PyQt6, Python 3.13)

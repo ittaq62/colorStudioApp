@@ -81,6 +81,41 @@ class TestSaturation(unittest.TestCase):
         np.testing.assert_array_almost_equal(out, img)
 
 
+class TestAEYmean(unittest.TestCase):
+    """tests du post-process d'exposition automatique"""
+
+    def test_black_image_no_crash(self):
+        # bug historique : image toute noire -> Ymean = 0 -> division par zero
+        # on verifie juste que le postProcess ne plante pas et retourne une image
+        # au bon format (les valeurs peuvent etre clampees a 0 car img * grand = 0*grand = 0)
+        ae = model.AE_Ymean(Ytarget=0.5, exposure=0.0)
+        black = np.zeros((4, 4, 3), dtype=np.float64)
+        out = ae.postProcess(black)
+        self.assertEqual(out.shape, black.shape)
+        # l'image noire reste noire apres AE (0 * nimporte quoi = 0)
+        self.assertTrue(np.all(out == 0.0))
+
+    def test_grey_image_lifted_to_ytarget(self):
+        # une image grise uniforme a 0.25 avec Ytarget=0.5 doit doubler la luminance
+        ae = model.AE_Ymean(Ytarget=0.5, exposure=0.0)
+        grey = np.ones((4, 4, 3), dtype=np.float64) * 0.25
+        out = ae.postProcess(grey)
+        # Ymean d'un gris 0.25 = 0.25 (rgb2yuv conserve la luminance d'un gris)
+        # donc gain = 0.5 / 0.25 = 2.0 -> out = 0.5
+        self.assertAlmostEqual(out.mean(), 0.5, places=3)
+
+    def test_off_uses_exposure_off(self):
+        # quand on/off = False, on applique juste 2^exposureOFF sans passer par Ymean
+        ae = model.AE_Ymean(Ytarget=0.5, exposure=1.0)
+        ae.setOnOff(False)
+        # setExposure en off met a jour _exposureOFF
+        ae.setExposure(1.0)
+        grey = np.ones((4, 4, 3), dtype=np.float64) * 0.25
+        out = ae.postProcess(grey)
+        # 0.25 * 2^1 = 0.5
+        self.assertAlmostEqual(out.mean(), 0.5, places=3)
+
+
 class TestScene(unittest.TestCase):
     """test basique de Scene"""
 

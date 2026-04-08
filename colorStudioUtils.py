@@ -45,8 +45,17 @@ def loadImage(filename, scale=0.5):
         filename   - Required  : image filename (Str)
         scale      - Optional  : scaling factor [=0.5] (Float)
     """
-    img = imageio.imread(filename)
-    imgDouble = 1.0 * img / 255.0
+    try:
+        img = imageio.imread(filename)
+        imgDouble = 1.0 * img / 255.0
+    except FileNotFoundError:
+        print(f"\n[WARNING] File not found: {filename}. Using black placeholder.")
+        # Return a small black image as placeholder
+        return np.zeros((10, 10, 3))
+    except Exception as e:
+        print(f"\n[ERROR] Could not load image {filename}: {e}")
+        return np.zeros((10, 10, 3))
+
     if scale != 1.0:
         imgDouble = skimage.transform.rescale(imgDouble, scale, anti_aliasing=True, channel_axis=2)
     return imgDouble

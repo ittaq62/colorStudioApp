@@ -47,18 +47,6 @@ def loadImage(filename, scale=0.5):
         filename   - Required  : image filename (Str)
         scale      - Optional  : scaling factor [=0.5] (Float)
     """
-<<<<<<< HEAD:colorStudioUtils.py
-    try:
-        img = imageio.imread(filename)
-        imgDouble = 1.0 * img / 255.0
-    except FileNotFoundError:
-        print(f"\n[WARNING] File not found: {filename}. Using black placeholder.")
-        # Return a small black image as placeholder
-        return np.zeros((10, 10, 3))
-    except Exception as e:
-        print(f"\n[ERROR] Could not load image {filename}: {e}")
-        return np.zeros((10, 10, 3))
-=======
     img = imageio.imread(filename)
 
     # normalise selon le dtype d'origine
@@ -69,7 +57,6 @@ def loadImage(filename, scale=0.5):
     else:
         # deja en float (HDR : .hdr, .exr) -> on garde tel quel
         imgDouble = img.astype(np.float64)
->>>>>>> a8add8f2f87471077804acc8dd663285b817cf84:colorstudio/utils.py
 
     if scale != 1.0:
         imgDouble = skimage.transform.rescale(imgDouble, scale, anti_aliasing=True, channel_axis=2)

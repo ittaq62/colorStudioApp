@@ -16,7 +16,7 @@ import math
 import numpy as np
 import skimage
 
-from PyQt6.QtWidgets import QApplication, QWidget, QLabel, QPushButton, QVBoxLayout, QHBoxLayout, QSlider
+from PyQt6.QtWidgets import QApplication, QWidget, QLabel, QPushButton, QVBoxLayout, QHBoxLayout, QSlider, QCheckBox
 from PyQt6.QtGui import QPixmap, QImage, QSurfaceFormat
 #from PyQt6.QtGui import QIcon  # plus utilise dans ce fichier
 from PyQt6 import QtCore
@@ -556,3 +556,30 @@ class CSQSaturationLayout(QVBoxLayout):
         self._gammaSaturation = (2 * value / 100.0 - 1.0) * self._range
         self._gammaSaturationValueLabel.setText("gamma saturation: " + "{:+.0f}".format(self._gammaSaturation))
         self._controller._event(self, [1, self._gammaSaturation])
+
+# ----------------------------------------------------------------------------------
+class CSQHDRControlLayout(QHBoxLayout):
+    """
+    case a cocher "HDR mode" : quand elle est cochee, la scene ne clippe plus les
+    valeurs a 1.0 lors du render et le widget d'affichage applique un tone mapping.
+    """
+    def __init__(self, scene, displayWidgets):
+        super().__init__()
+        self._scene = scene
+        self._displayWidgets = displayWidgets
+
+        # case a cocher + label
+        self._checkBox = QCheckBox("HDR mode")
+        self._checkBox.setChecked(bool(scene._hdr))
+        self.addWidget(self._checkBox)
+
+        # callback
+        self._checkBox.stateChanged.connect(self._onToggle)
+
+    def _onToggle(self, state):
+        # mise a jour du flag HDR de la scene
+        self._scene._hdr = self._checkBox.isChecked()
+        # re-render + refresh des widgets d'affichage
+        img = self._scene.render()
+        for w in self._displayWidgets:
+            w._update(img)

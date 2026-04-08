@@ -160,6 +160,12 @@ class CSUIAllBuilder(CSUIBuilder):
         sat_layout._controller = sat_controller
         # end of hack
 
+        # (8) case a cocher HDR mode
+        self._controlWidget._layout.addWidget(QLabel("HDR"))
+        hdr_layout = colorStudioWidget.CSQHDRControlLayout(
+            lightsScene, [self._renderWidget, self._color3DWidget])
+        self._controlWidget._layout.addLayout(hdr_layout)
+
         # (xxx) show all window
         self._renderWidget.show()
         self._controlWidget.show()

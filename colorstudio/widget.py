@@ -426,7 +426,14 @@ class CSDisplayWidget(QWidget):
         self._label.setPixmap(pixmap)
 
     def _update(self, imgDouble):
-        img = (imgDouble * 255).astype(np.uint8)
+        # si la scene a ete rendue en HDR, les valeurs peuvent depasser 1.0
+        # -> on applique un tone mapping avant la conversion en uint8 sinon
+        # le rendu est cramé (blanc partout)
+        if imgDouble.max() > 1.0:
+            imgDisplay = colorStudioUtils.toneMap(imgDouble)
+        else:
+            imgDisplay = imgDouble
+        img = (imgDisplay * 255).astype(np.uint8)
         height, width, channel = img.shape
         bytesPerLine = channel * width
         qImg = QImage(img.tobytes(), width, height, bytesPerLine, QImage.Format.Format_RGB888)

@@ -30,3 +30,6 @@ env/
 # OS
 .DS_Store
 Thumbs.db
+
+# dossier imbrique legacy (vieux .pyc pre-refactor + config session locale)
+/colorStudioApp/

@@ -63,6 +63,18 @@ def loadImage(filename, scale=0.5):
     return imgDouble
 
 # ----------------------------------------------------------------------------------
+def toneMap(imgDouble):
+    """
+    tone mapping de Reinhard pour afficher une image HDR a l'ecran.
+    formule : x / (1 + x) -> ramene les valeurs [0, +inf[ dans [0, 1[
+    @params:
+        imgDouble  - Required  : image RGB float (peut contenir des valeurs > 1)
+    """
+    # valeurs negatives possibles apres postprocess -> on clippe en bas a 0
+    safe = np.maximum(imgDouble, 0.0)
+    return safe / (1.0 + safe)
+
+# ----------------------------------------------------------------------------------
 def image2Ymean(imgDouble):
     """
     compute Y (Luminance) mean of an image (RGB in [0,max] (Float))

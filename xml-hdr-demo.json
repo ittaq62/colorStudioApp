@@ -1,0 +1,24 @@
+{
+    "hdr": true,
+    "lights": [
+        {
+            "name": "Light0",
+            "inputFile": {
+                "path": "./images/museum2x2/light01_",
+                "ext": ".jpg",
+                "min": 0,
+                "max": 100,
+                "digit": 4
+            },
+            "idxPos": 25,
+            "exposure": 2.5,
+            "color": [
+                1.0,
+                1.0,
+                1.0
+            ]
+        }
+    ],
+    "postprocesses": [],
+    "renderFile": "render-hdr-demo.jpg"
+}

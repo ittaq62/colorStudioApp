@@ -17,6 +17,7 @@ import numpy as np
 import skimage
 
 import xml.dom.minidom as miniXml
+import json
 
 # ----------------------------------------------------------------------------------
 # Class(es)
@@ -173,6 +174,24 @@ class Light:
             "</" + lightMark + ">"
         return outString
 
+    def toDict(self):
+        """
+        returns a dictionary representation of the light
+        """
+        return {
+            "name": self._name,
+            "inputFile": {
+                "path": self._ImagesArray._pathImage + self._ImagesArray._baseImageName,
+                "ext": self._ImagesArray._extImageName,
+                "min": 0,
+                "max": self._ImagesArray._nbImage,
+                "digit": self._ImagesArray._nbDigit
+            },
+            "idxPos": self._imageIdx,
+            "exposure": self._exposure,
+            "color": self._npColorRGB.tolist()
+        }
+
 # ----------------------------------------------------------------------------------
 #  SCENE
 # ----------------------------------------------------------------------------------
@@ -228,6 +247,67 @@ class Scene:
         # add </LIGHTS>
         outString = outString + "</" + lsMark + ">" + '\n'
         return outString
+
+    def toDict(self):
+        """
+        returns a dictionary representation of the scene
+        """
+        return {
+            "hdr": self._hdr,
+            "lights": [l.toDict() for l in self._lights]
+        }
+
+    def toJSON(self, filename):
+        """
+        save the scene to a JSON file
+        """
+        with open(filename, 'w', encoding='utf-8') as f:
+            json.dump(self.toDict(), f, indent=4)
+
+    def fromJSON(self, filename, scale=0.5):
+        """
+        load the scene from a JSON file
+        """
+        with open(filename, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+
+        self._hdr = data.get('hdr', False)
+        
+        # dict {'filename':[light]} to avoid multiple rendered-image file loads
+        filenameLight = {}
+
+        for lData in data.get('lights', []):
+            light = Light(name=lData['name'])
+            light.setExposure(lData['exposure'])
+            light.setColor(np.asarray(lData['color']))
+            light.setImageIdx(lData['idxPos'])
+            
+            inf = lData['inputFile']
+            imagesFile = inf['path']
+            images = Images('', imagesFile, inf['ext'], inf['max'], inf['digit'], load=False)
+            light.setImagesArray(images)
+            
+            self._lights.append(light)
+            
+            if imagesFile in filenameLight:
+                filenameLight[imagesFile].append(light)
+            else:
+                filenameLight[imagesFile] = [light]
+
+        # rendered-image files management (same logic as in fromXML)
+        for k in filenameLight.keys():
+            lights = filenameLight[k]
+            firstLight = lights[0]
+            imgs = Images(
+                firstLight._ImagesArray._pathImage,
+                firstLight._ImagesArray._baseImageName,
+                firstLight._ImagesArray._extImageName,
+                firstLight._ImagesArray._nbImage,
+                firstLight._ImagesArray._nbDigit,
+                load=True, scale=scale)
+
+            for li in lights:
+                li.setImagesArray(imgs)
 
     def fromXML(self, xmlFile, scale=0.5):
         # parse XML file

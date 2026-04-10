@@ -36,13 +36,12 @@ if not app:
 
 # select input file name
 # defaut : scene legere qui n'utilise que light01_* (les seuls images presentes dans le repo)
-# l'ancien defaut xml-2019-6-7-22-47-1.xml referencait light02_* qui manque -> crash si on annule la dialog
-defaultFilename = "./xml-postProcess-test.xml"
+defaultFilename = "./xml-postProcess-test.json"
 inputFilename, _ = QFileDialog.getOpenFileName(
     None,
     "Color Studio — select light-setup file",
     "",
-    "XML files (*.xml)"
+    "JSON files (*.json);;XML files (*.xml)"
 )
 print("ColorStudio: input file>", inputFilename)
 
@@ -52,8 +51,11 @@ if not inputFilename:
 
 # scene object
 lightsScene = colorStudioModel.Scene()
-# load scene from xml
-lightsScene.fromXML(inputFilename, colorStudioUIBuilder.CSUIBuilder.template['scale'])
+# load scene
+if inputFilename.endswith('.json'):
+    lightsScene.fromJSON(inputFilename, colorStudioUIBuilder.CSUIBuilder.template['scale'])
+else:
+    lightsScene.fromXML(inputFilename, colorStudioUIBuilder.CSUIBuilder.template['scale'])
 # print scene
 lightsScene.print()
 

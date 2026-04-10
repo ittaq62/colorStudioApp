@@ -1,0 +1,109 @@
+{
+    "hdr": false,
+    "lights": [
+        {
+            "name": "Light0",
+            "inputFile": {
+                "path": "./images/museum2x2/light01_",
+                "ext": ".jpg",
+                "min": 0,
+                "max": 100,
+                "digit": 4
+            },
+            "idxPos": 38,
+            "exposure": -0.4,
+            "color": [
+                1.0,
+                0.6975317316739538,
+                0.0
+            ]
+        },
+        {
+            "name": "Light1",
+            "inputFile": {
+                "path": "./images/museum2x2/light01_",
+                "ext": ".jpg",
+                "min": 0,
+                "max": 100,
+                "digit": 4
+            },
+            "idxPos": 54,
+            "exposure": -5.551115123125783e-17,
+            "color": [
+                0.0,
+                0.012644020875870687,
+                1.0
+            ]
+        },
+        {
+            "name": "Light2",
+            "inputFile": {
+                "path": "./images/museum2x2/light01_",
+                "ext": ".jpg",
+                "min": 0,
+                "max": 100,
+                "digit": 4
+            },
+            "idxPos": 90,
+            "exposure": -1.4,
+            "color": [
+                1.0,
+                1.0,
+                1.0
+            ]
+        },
+        {
+            "name": "Light3",
+            "inputFile": {
+                "path": "./images/museum2x2/light01_",
+                "ext": ".jpg",
+                "min": 0,
+                "max": 100,
+                "digit": 4
+            },
+            "idxPos": 69,
+            "exposure": -1.2,
+            "color": [
+                1.0,
+                0.673386541171509,
+                0.0
+            ]
+        },
+        {
+            "name": "Light4",
+            "inputFile": {
+                "path": "./images/museum2x2/light01_",
+                "ext": ".jpg",
+                "min": 0,
+                "max": 100,
+                "digit": 4
+            },
+            "idxPos": 44,
+            "exposure": -1.2,
+            "color": [
+                0.0,
+                0.17921928988294233,
+                1.0
+            ]
+        },
+        {
+            "name": "Light5",
+            "inputFile": {
+                "path": "./images/museum2x2/light01_",
+                "ext": ".jpg",
+                "min": 0,
+                "max": 100,
+                "digit": 4
+            },
+            "idxPos": 17,
+            "exposure": -0.9999999999999996,
+            "color": [
+                1.0,
+                1.0,
+                1.0
+            ]
+        }
+    ],
+    "postprocesses": [],
+    "renderFile": "render-2019-6-7-22-38-31.jpg"
+}

@@ -1,0 +1,173 @@
+/* Modern Dark Theme for Color Studio 2026 */
+
+/* Variables (using QSS logic) */
+* {
+    font-family: 'Segoe UI', 'Roboto', 'Helvetica Neue', sans-serif;
+    color: #E0E0E0;
+    selection-background-color: #007AFF;
+}
+
+QMainWindow {
+    background-color: #121212;
+}
+
+QWidget {
+    background-color: transparent;
+}
+
+/* Sidebar / Card Styling */
+#controlPanel, #sidebar {
+    background-color: #1E1E1E;
+    border-right: 1px solid #333333;
+    padding: 10px;
+}
+
+.card {
+    background-color: #2D2D2D;
+    border-radius: 8px;
+    padding: 12px;
+    margin-bottom: 10px;
+}
+
+QLabel {
+    font-size: 13px;
+    font-weight: 500;
+}
+
+QLabel#title {
+    font-size: 18px;
+    font-weight: bold;
+    color: #FFFFFF;
+    margin-bottom: 15px;
+}
+
+QLabel#sectionHeader {
+    font-size: 12px;
+    font-weight: bold;
+    color: #888888;
+    text-transform: uppercase;
+    margin-top: 10px;
+    margin-bottom: 5px;
+}
+
+/* Sliders */
+QSlider::groove:horizontal {
+    border: 1px solid #333333;
+    height: 4px;
+    background: #444444;
+    margin: 2px 0;
+    border-radius: 2px;
+}
+
+QSlider::handle:horizontal {
+    background: #007AFF;
+    border: 1px solid #007AFF;
+    width: 14px;
+    height: 14px;
+    margin: -5px 0;
+    border-radius: 7px;
+}
+
+QSlider::handle:horizontal:hover {
+    background: #3399FF;
+    border: 1px solid #3399FF;
+}
+
+QSlider::add-page:horizontal {
+    background: #444444;
+}
+
+QSlider::sub-page:horizontal {
+    background: #007AFF;
+}
+
+/* Buttons */
+QPushButton {
+    background-color: #333333;
+    border: 1px solid #444444;
+    border-radius: 6px;
+    padding: 6px 12px;
+    min-height: 20px;
+}
+
+QPushButton:hover {
+    background-color: #444444;
+    border: 1px solid #555555;
+}
+
+QPushButton:pressed {
+    background-color: #222222;
+}
+
+QPushButton#actionButton {
+    background-color: #007AFF;
+    color: white;
+    font-weight: bold;
+}
+
+QPushButton#actionButton:hover {
+    background-color: #0063CC;
+}
+
+/* Checkbox */
+QCheckBox {
+    spacing: 8px;
+}
+
+QCheckBox::indicator {
+    width: 18px;
+    height: 18px;
+    border-radius: 4px;
+    border: 1px solid #444444;
+    background-color: #2D2D2D;
+}
+
+QCheckBox::indicator:checked {
+    background-color: #007AFF;
+    border: 1px solid #007AFF;
+}
+
+/* ScrollBars */
+QScrollBar:vertical {
+    border: none;
+    background: #1E1E1E;
+    width: 8px;
+    margin: 0px;
+}
+
+QScrollBar::handle:vertical {
+    background: #444444;
+    min-height: 20px;
+    border-radius: 4px;
+}
+
+QScrollBar::handle:vertical:hover {
+    background: #555555;
+}
+
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+    height: 0px;
+}
+
+/* Splitter */
+QSplitter::handle {
+    background-color: #333333;
+}
+
+QSplitter::handle:hover {
+    background-color: #007AFF;
+}
+
+/* Specific Widgets */
+#imageArea {
+    background-color: #0A0A0A;
+}
+
+#exposureLabel {
+    background-color: #333333;
+    border-radius: 4px;
+    padding: 2px;
+    font-family: 'Consolas', monospace;
+    font-size: 11px;
+    color: #007AFF;
+}

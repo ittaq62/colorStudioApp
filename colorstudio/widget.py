@@ -35,6 +35,33 @@ def getScreenSize():
     return size.width(), size.height()
 
 # ----------------------------------------------------------------------------------
+class CardWidget(QWidget):
+    """
+    A simple wrapper to give a layout a card-like appearance
+    """
+    def __init__(self, layout, title=None):
+        super().__init__()
+        self.setObjectName("card")
+        self.setProperty("class", "card")
+        
+        main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(15, 15, 15, 15)
+        main_layout.setSpacing(10)
+
+        if title:
+            title_label = QLabel(title.upper())
+            title_label.setObjectName("sectionHeader")
+            main_layout.addWidget(title_label)
+        
+        # If the passed layout is already a layout object
+        if isinstance(layout, (QHBoxLayout, QVBoxLayout)):
+            content_widget = QWidget()
+            content_widget.setLayout(layout)
+            main_layout.addWidget(content_widget)
+        else:
+            main_layout.addWidget(layout)
+
+# ----------------------------------------------------------------------------------
 # classes
 # ----------------------------------------------------------------------------------
 class QModernGLWidget(QOpenGLWidget):
@@ -264,22 +291,35 @@ class CSQLightControlLayout(QHBoxLayout):
             uiCCIMG = colorStudioUIBuilder.CSUIBuilder.uiCCIMG
 
         # create button
-        self._deButton = CSQIMGButton(uiDEIMG, (50, 50), name="decrease exposure button")
-        self._ieButton = CSQIMGButton(uiIEIMG, (50, 50), name="increase exposure button")
-        self._ccButton = CSQIMGButton(uiCCIMG, (50, 50), name="light color  button")
+        self._deButton = CSQIMGButton(uiDEIMG, (32, 32), name="decrease exposure button")
+        self._ieButton = CSQIMGButton(uiIEIMG, (32, 32), name="increase exposure button")
+        self._ccButton = CSQIMGButton(uiCCIMG, (32, 32), name="light color button")
+        
         self._exposureValueLabel = QLabel("+0.00")
+        self._exposureValueLabel.setFixedWidth(50)
+        self._exposureValueLabel.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
+        self._exposureValueLabel.setObjectName("exposureLabel")
+        
         self._sliderPosition = QSlider(QtCore.Qt.Orientation.Horizontal)
         self._sliderPosition.setValue(lightPosIdx)
+        self._sliderPosition.setObjectName("posSlider")
+        
         # control of Exposure
         self._step = stepE
         self._max = maxE
         self._exposure = 0.0
+        
         # add button to layout
-        self.addWidget(self._deButton)
-        self.addWidget(self._exposureValueLabel)
-        self.addWidget(self._ieButton)
-        self.addWidget(self._ccButton)
+        left_group = QHBoxLayout()
+        left_group.addWidget(self._deButton)
+        left_group.addWidget(self._exposureValueLabel)
+        left_group.addWidget(self._ieButton)
+        left_group.addWidget(self._ccButton)
+        left_group.setSpacing(5)
+        
+        self.addLayout(left_group)
         self.addWidget(self._sliderPosition)
+        self.setStretch(1, 1) # Give slider more space
 
         # set onClick callback
         self._ieButton.clicked.connect(self.incExposure)
@@ -336,19 +376,25 @@ class CSQAEControlLayout(QHBoxLayout):
             uiAEoffIMG = colorStudioUIBuilder.CSUIBuilder.uiAEoffIMG
 
         # create automatic exposure (switch) + control button
-        self._aeButton = CSQIMGSwitchButton(uiAEonIMG, uiAEoffIMG, (50, 50), name="switch AE")
+        self._aeButton = CSQIMGSwitchButton(uiAEonIMG, uiAEoffIMG, (32, 32), name="switch AE")
 
         self._ieButton = QPushButton("EV (+)")
         self._deButton = QPushButton("EV (-)")
+        self._ieButton.setFixedWidth(50)
+        self._deButton.setFixedWidth(50)
 
         # exposure value label
         self._exposureValueLabel = QLabel("+0.00")
+        self._exposureValueLabel.setFixedWidth(50)
+        self._exposureValueLabel.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
+        self._exposureValueLabel.setObjectName("exposureLabel")
 
         # add button to layout
         self.addWidget(self._aeButton)
         self.addWidget(self._deButton)
         self.addWidget(self._exposureValueLabel)
         self.addWidget(self._ieButton)
+        self.setSpacing(10)
 
         # set onClick callback
         self._aeButton.clicked.connect(self.switch_on_off)
@@ -413,12 +459,25 @@ class CSDisplayWidget(QWidget):
     def __init__(self, controller, title=None):
         super().__init__()
         self._controller = controller
-        self.setWindowTitle(title or "Color Studio - RC 2019")
+        if title:
+            self.setWindowTitle(title)
+        
+        main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        
         self._label = QLabel(self)
+        self._label.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
+        main_layout.addWidget(self._label)
 
         # setFirstPixmap
-        w, h = colorStudioUIBuilder.CSUIBuilder.template['uiRenderWidget_size']
-        img = (np.ones((h, w, 3)) * 255).astype(np.uint8)
+        # Use a default size if template is not yet ready or accessible
+        w, h = 800, 600
+        try:
+            w, h = colorStudioUIBuilder.CSUIBuilder.template['uiRenderWidget_size']
+        except:
+            pass
+            
+        img = (np.ones((h, w, 3)) * 30).astype(np.uint8) # Darker initial background
         height, width, channel = img.shape
         bytesPerLine = channel * width
         qImg = QImage(img.tobytes(), width, height, bytesPerLine, QImage.Format.Format_RGB888)
@@ -426,9 +485,6 @@ class CSDisplayWidget(QWidget):
         self._label.setPixmap(pixmap)
 
     def _update(self, imgDouble):
-        # si la scene a ete rendue en HDR, les valeurs peuvent depasser 1.0
-        # -> on applique un tone mapping avant la conversion en uint8 sinon
-        # le rendu est cramé (blanc partout)
         if imgDouble.max() > 1.0:
             imgDisplay = colorStudioUtils.toneMap(imgDouble)
         else:
@@ -437,50 +493,97 @@ class CSDisplayWidget(QWidget):
         height, width, channel = img.shape
         bytesPerLine = channel * width
         qImg = QImage(img.tobytes(), width, height, bytesPerLine, QImage.Format.Format_RGB888)
-        pixmap = QPixmap.fromImage(qImg)
+        pixmap = QPixmap.fromImage(qImg).scaled(
+            self.size(), 
+            QtCore.Qt.AspectRatioMode.KeepAspectRatio, 
+            QtCore.Qt.TransformationMode.SmoothTransformation
+        )
         self._label.setPixmap(pixmap)
+
+    def resizeEvent(self, event):
+        # Trigger update of pixmap scaling on resize if we have image data
+        # In a real app we'd store the last imgDouble, but for now we'll just wait for next update
+        super().resizeEvent(event)
 
 # ----------------------------------------------------------------------------------
 class CSDisplayColorWheel(QWidget):
-    def __init__(self, controller, width=480):
+    def __init__(self, controller, base_width=480):
         super().__init__()
         # controller
         self._controller = controller
 
-        # size
-        self._width = 480
-        self._height = self._width
+        # Reference size
+        self._base_size = base_width
 
         # title and window size
         self.setWindowTitle("Color Wheel:: __ no active light __")
 
-        # image (color wheel)
-        colorWheelImg = (colorStudioUtils.colorWheel(self._width // 2) * 255).astype(np.uint8)
+        # Create base color wheel image once
+        colorWheelImg = (colorStudioUtils.colorWheel(self._base_size // 2) * 255).astype(np.uint8)
         height, width, channel = colorWheelImg.shape
         bytesPerLine = channel * width
         qImg = QImage(colorWheelImg.tobytes(), width, height, bytesPerLine, QImage.Format.Format_RGB888)
-
-        # store pixmap in object
-        self._pixmap = QPixmap.fromImage(qImg)
+        
+        self._base_pixmap = QPixmap.fromImage(qImg)
+        
+        # Use a label specifically scaled
+        main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(0,0,0,0)
         self._label = QLabel(self)
-        self._label.setPixmap(self._pixmap)
+        self._label.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
+        main_layout.addWidget(self._label)
 
         # mouse
         self.setMouseTracking(True)
+        # Ensure label passes mouse events to us
+        self._label.setMouseTracking(True)
+        self._label.mousePressEvent = self.mousePressEvent
+        self._label.mouseMoveEvent = self.mouseMoveEvent
+
+    def resizeEvent(self, event):
+        # Scale pixmap to fit widget
+        scaled_pix = self._base_pixmap.scaled(
+            self.size(),
+            QtCore.Qt.AspectRatioMode.KeepAspectRatio,
+            QtCore.Qt.TransformationMode.SmoothTransformation
+        )
+        self._label.setPixmap(scaled_pix)
+        super().resizeEvent(event)
 
     def mousePressEvent(self, e):
-        self.mouseMoveEvent(e)
+        self._handle_mouse(e)
 
     def mouseMoveEvent(self, e):
-        # mouse position
-        x, y = int(e.position().x()), int(e.position().y())
+        self._handle_mouse(e)
+        
+    def _handle_mouse(self, e):
+        # Convert coordinates back to base size
+        label_size = self._label.pixmap().size()
+        # Offset to start of the centered image
+        x_offset = (self.width() - label_size.width()) / 2
+        y_offset = (self.height() - label_size.height()) / 2
+        
+        # Adjust click pos relative to actual image
+        img_x = e.position().x() - x_offset
+        img_y = e.position().y() - y_offset
+        
+        # Avoid out of bounds
+        if img_x < 0 or img_y < 0 or img_x > label_size.width() or img_y > label_size.height():
+            return
+            
+        # Scale to match original generation logic logic
+        scale_x = self._base_size / label_size.width()
+        scale_y = self._base_size / label_size.height()
+        
+        x = img_x * scale_x
+        y = img_y * scale_y
 
         # hsv color
         hsv_array = np.zeros([1, 1, 3])
 
-        if colorStudioUtils.inRange2D([x, y], [0, 0], [self._width, self._height]):
+        if colorStudioUtils.inRange2D([x, y], [0, 0], [self._base_size, self._base_size]):
             # compute local coordinate
-            w, h = self._width, self._height
+            w, h = self._base_size, self._base_size
             x_local = 2 * (x - w / 2) / w
             y_local = 2 * (y - h / 2) / h
             r = math.sqrt(x_local * x_local + y_local * y_local)

@@ -474,7 +474,7 @@ class CSDisplayWidget(QWidget):
         w, h = 800, 600
         try:
             w, h = colorStudioUIBuilder.CSUIBuilder.template['uiRenderWidget_size']
-        except:
+        except (KeyError, TypeError):
             pass
             
         img = (np.ones((h, w, 3)) * 30).astype(np.uint8) # Darker initial background
@@ -600,17 +600,6 @@ class CSDisplayColorWheel(QWidget):
 
             # controller
             self._controller._event(self, [0, rgb])
-
-# ----------------------------------------------------------------------------------
-class CSDisplayControls(QWidget):
-    def __init__(self):
-        super().__init__()
-
-        # window tile
-        self.setWindowTitle("Control Window")
-        # add Vertical layout
-        self._layout = QVBoxLayout()
-        self.setLayout(self._layout)
 
 # ----------------------------------------------------------------------------------
 class CSQSaturationLayout(QVBoxLayout):

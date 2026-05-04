@@ -12,8 +12,8 @@ Color Studio - Rémi Cozot 2019
 import skimage
 
 from PyQt6.QtWidgets import (
-    QLabel, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
-    QSplitter, QScrollArea, QFrame, QSizePolicy
+    QLabel, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
+    QSplitter, QScrollArea, QFrame
 )
 from PyQt6.QtCore import Qt, QFile, QTextStream
 #from PyQt6.QtWidgets import QApplication, QWidget, QPushButton, QVBoxLayout, QHBoxLayout, QSlider  # plus utilises dans ce fichier

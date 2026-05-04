@@ -330,12 +330,12 @@ class Scene:
             lightName = xl.attributes['name'].value
 
             # input file : <INPUTFILE ext=".jpg" min="0" max="100"  digit="4" >./images/set02/arnold_pass</INPUTFILE>
-            input = xl.getElementsByTagName('INPUTFILE')[0]
-            ext = input.attributes['ext'].value
-            min = int(input.attributes['min'].value)
-            max = int(input.attributes['max'].value)
-            digit = int(input.attributes['digit'].value)
-            imagesFile = input.firstChild.data
+            inputNode = xl.getElementsByTagName('INPUTFILE')[0]
+            ext = inputNode.attributes['ext'].value
+            nbMin = int(inputNode.attributes['min'].value)
+            nbMax = int(inputNode.attributes['max'].value)
+            digit = int(inputNode.attributes['digit'].value)
+            imagesFile = inputNode.firstChild.data
 
             # index light position : <IDXPOS>36</IDXPOS>
             idxPos = int(xl.getElementsByTagName('IDXPOS')[0].firstChild.data)
@@ -354,7 +354,7 @@ class Scene:
             light.setExposure(exp)
             light.setColor(np.asarray([rr, gg, bb]))
             light.setImageIdx(idxPos)
-            images = Images('', imagesFile, ext, max, digit, load=False)
+            images = Images('', imagesFile, ext, nbMax, digit, load=False)
             light.setImagesArray(images)
 
             # add current light to allLights

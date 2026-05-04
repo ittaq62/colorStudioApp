@@ -5,9 +5,9 @@ Réalisé par :
 - **Douilly Quentin**
 - **Deldalle Corentin**
 
-## 1. Migration vers Python 3.12
+## 1. Migration vers Python 3.13
 
-L'ensemble de la base de code a été migré pour être compatible avec **Python 3.12** (ou version supérieure). Cette mise à jour permet de bénéficier des dernières optimisations de l'interpréteur, des améliorations de typage et des nouvelles fonctionnalités du langage.
+L'ensemble de la base de code a été migré pour être compatible avec **Python 3.13**. Cette mise à jour permet de bénéficier des dernières optimisations de l'interpréteur, des améliorations de typage et des nouvelles fonctionnalités du langage.
 
 - **Avantages** : Meilleures performances globales, sécurité accrue et accès aux bibliothèques les plus récentes.
 - **Actions réalisées** : Tests de compatibilité, mise à jour de la syntaxe si nécessaire et vérification des dépendances.
@@ -26,7 +26,7 @@ L'interface graphique, initialement basée sur une version antérieure (PyQt5), 
 
 Un nettoyage approfondi des dépendances a été effectué pour alléger le projet et réduire les risques de sécurité.
 
-- **Retraits** : Identification et suppression des bibliothèques qui ne sont plus maintenues ou qui faisaient doublon avec des modules standards de Python 3.12.
+- **Retraits** : Identification et suppression des bibliothèques qui ne sont plus maintenues ou qui faisaient doublon avec des modules standards de Python 3.13.
 - **Remplacement** : Utilisation de solutions intégrées ou plus modernes pour les fonctionnalités critiques (gestion d'images, calculs mathématiques).
 
 ## 4. Mise en Place d'une Architecture Logicielle Moderne

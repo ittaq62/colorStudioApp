@@ -602,17 +602,6 @@ class CSDisplayColorWheel(QWidget):
             self._controller._event(self, [0, rgb])
 
 # ----------------------------------------------------------------------------------
-class CSDisplayControls(QWidget):
-    def __init__(self):
-        super().__init__()
-
-        # window tile
-        self.setWindowTitle("Control Window")
-        # add Vertical layout
-        self._layout = QVBoxLayout()
-        self.setLayout(self._layout)
-
-# ----------------------------------------------------------------------------------
 class CSQSaturationLayout(QVBoxLayout):
 
     def __init__(self, controller, range=100):

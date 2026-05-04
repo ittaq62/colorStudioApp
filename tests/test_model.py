@@ -184,5 +184,56 @@ class TestSceneFromXML(unittest.TestCase):
         self.assertTrue(scene._hdr)
 
 
+class TestSceneFromJSON(unittest.TestCase):
+    """tests de Scene.fromJSON"""
+
+    # JSON minimal : 1 light, pas d'images a charger (max=0)
+    _JSON_LDR = '{"hdr": false, "lights": [{"name": "L0", "inputFile": {"path": "./fake/no_", "ext": ".jpg", "min": 0, "max": 0, "digit": 4}, "idxPos": 0, "exposure": 1.5, "color": [1.0, 0.5, 0.0]}]}'
+    _JSON_HDR = '{"hdr": true, "lights": [{"name": "Lhdr", "inputFile": {"path": "./fake/no_", "ext": ".jpg", "min": 0, "max": 0, "digit": 4}, "idxPos": 10, "exposure": 2.0, "color": [0.8, 0.8, 1.0]}]}'
+
+    def setUp(self):
+        model.Light.lightNb = 0
+        self._tmpFiles = []
+
+    def tearDown(self):
+        for p in self._tmpFiles:
+            if os.path.exists(p):
+                os.unlink(p)
+
+    def _writeJson(self, content):
+        fd, path = tempfile.mkstemp(suffix=".json")
+        os.close(fd)
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(content)
+        self._tmpFiles.append(path)
+        return path
+
+    def test_json_ldr(self):
+        # charge un JSON sans HDR, verifie les attributs de base
+        path = self._writeJson(self._JSON_LDR)
+        scene = model.Scene()
+        scene.fromJSON(path)
+        self.assertFalse(scene._hdr)
+        self.assertEqual(len(scene._lights), 1)
+        self.assertEqual(scene._lights[0]._name, "L0")
+        self.assertAlmostEqual(scene._lights[0]._exposure, 1.5)
+
+    def test_json_hdr(self):
+        # charge un JSON avec hdr=true
+        path = self._writeJson(self._JSON_HDR)
+        scene = model.Scene()
+        scene.fromJSON(path)
+        self.assertTrue(scene._hdr)
+        self.assertEqual(scene._lights[0]._name, "Lhdr")
+
+    def test_json_light_color(self):
+        # verifie que la couleur est correctement lue
+        path = self._writeJson(self._JSON_LDR)
+        scene = model.Scene()
+        scene.fromJSON(path)
+        color = scene._lights[0]._npColorRGB
+        np.testing.assert_array_almost_equal(color, [1.0, 0.5, 0.0])
+
+
 if __name__ == "__main__":
     unittest.main()

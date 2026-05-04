@@ -220,6 +220,10 @@ class Scene:
         return returnLight
 
     def render(self):
+        if not self._lights:
+            # scene vide : retourne une petite image noire pour ne pas crasher
+            return np.zeros((4, 4, 3), dtype=np.float64)
+
         # init avec une copie du premier light pour eviter np.zeros + une addition
         # .copy() pour ne pas modifier le cache _currentImage du light
         imgOut = self._lights[0].render().copy()

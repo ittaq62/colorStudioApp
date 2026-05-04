@@ -9,44 +9,54 @@ lancer l'application depuis la racine du projet :
 py -3.13 main.py
 ```
 
-Une boite de dialogue s'ouvre et demande de selectionner un fichier XML
-de scene. Les scenes preconfigurees sont a la racine du repo :
+Une boite de dialogue s'ouvre et demande de selectionner un fichier de
+scene (JSON ou XML). Les scenes preconfigurees sont a la racine du repo :
 
-- `xml-postProcess-test.xml` : scene legere qui utilise uniquement le set
-  `light01_*` (le seul present dans le repo par defaut). A choisir si on
-  ne veut pas re-telecharger d'images.
-- `xml-hdr-demo.xml` : scene HDR volontairement sur-exposee, demontre le
-  mode HDR + tone mapping.
-- `xml-2019-*.xml` : anciennes scenes d'exemple, referencent `light02_*`
-  qui n'est pas dans le repo par defaut (cf. plus bas).
+- `xml-postProcess-test.json` (**defaut**) : scene legere qui utilise
+  uniquement le set `light01_*` (le seul present dans le repo).
+- `xml-hdr-demo.json` : scene HDR volontairement sur-exposee, demontre
+  le mode HDR + tone mapping.
+- `xml-2019-*.json` / `xml-2019-*.xml` : anciennes scenes d'exemple,
+  referencent `light02_*` qui n'est pas dans le repo par defaut (cf. plus bas).
 
 Si la boite de dialogue est annulee, l'application utilise le fichier
-`xml-postProcess-test.xml` par defaut.
+`xml-postProcess-test.json` par defaut.
 
-## Les 4 fenetres de l'UI
+## Interface (fenetre unique)
 
-Une fois la scene chargee, 4 fenetres s'ouvrent :
+L'application s'ouvre dans une **fenetre unique** avec un theme sombre :
 
-1. **Color Studio - render** : l'image rendue (mise a jour en temps reel)
-2. **Color Studio - controls** : panneau de controle principal (a gauche)
-3. **Color Studio - color point cloud** : nuage de points 3D (moderngl)
-4. **Color Wheel** : roue chromatique pour choisir la couleur d'une lumiere
+```
++---------------------+--------------------------------------------+
+|     SIDEBAR         |         IMAGE RENDUE                       |
+|  (scrollable)       |        (responsive au resize)              |
+|                     |                                            |
+|  [Project]          |                                            |
+|  [HDR Mode]         +--------------------------------------------+
+|  [Auto Exposure]    |    NUAGE 3D      |     ROUE CHROMATIQUE    |
+|  [Saturation]       |   (moderngl)     |    (click = couleur)    |
+|  [Light: xxx]       |                  |                         |
++---------------------+------------------+-------------------------+
+```
 
-## Panneau de controle
+- Le splitter entre la sidebar et la zone image est deplacable
+- Le splitter vertical entre l'image et le panneau analytique aussi
+- Le tout est responsive (s'adapte au resize de la fenetre)
 
-Le panneau de controle regroupe tous les sliders et boutons, repartis en
-sections :
+## Panneau de controle (sidebar)
+
+La sidebar regroupe tous les controles, organises en "cards" :
 
 ### Load / Save
 
-- **Load** : charge un nouveau fichier XML de scene (remplace la scene en cours).
-- **Save** : sauvegarde la scene courante (XML + image rendue). Le nom du
-  fichier de rendu vient de `<RENDERFILE>` s'il est dans le XML, sinon un
-  nom par defaut base sur la date est genere.
+- **Load** : charge un nouveau fichier de scene (JSON ou XML).
+- **Save** : sauvegarde la scene courante. Le nom du fichier de rendu
+  vient de `renderFile` (JSON) ou `<RENDERFILE>` (XML), sinon un nom
+  par defaut base sur la date est genere.
 
 ### Une ligne par lumiere
 
-Pour chaque `<LIGHT>` presente dans le XML, une ligne de controle est
+Pour chaque lumiere presente dans la scene, une card de controle est
 ajoutee :
 
 - `[ - ]` : diminue l'exposition de la lumiere de 0.5 EV
@@ -86,18 +96,40 @@ L'etat peut aussi etre initialise depuis le XML avec l'attribut
 ## Roue chromatique
 
 Pour changer la couleur d'une lumiere :
-1. cliquer sur le bouton `[ CC ]` de la lumiere concernee dans le panneau
-   de controle. Le titre de la fenetre de la roue chromatique se met a jour
-   avec le nom de la lumiere active.
-2. cliquer n'importe ou sur la roue pour appliquer cette couleur a la
-   lumiere active. Le rendu se met a jour instantanement.
+1. cliquer sur le bouton palette (CC) de la lumiere concernee dans la
+   sidebar.
+2. cliquer n'importe ou sur la roue (en bas a droite) pour appliquer
+   cette couleur. Le rendu se met a jour instantanement.
 
-## Ajouter une scene (cree un XML a la main)
+## Ajouter une scene
 
 1. Placer le set d'images pre-rendues dans `./images/mon_set/`, nommees par
    exemple `mon_set_0000.jpg`, `mon_set_0001.jpg`, ..., `mon_set_0099.jpg`
-2. Creer un fichier XML (voir `xml-format.md` pour le detail) :
+2. Creer un fichier JSON (plus simple) ou XML :
 
+**JSON** (recommande) :
+```json
+{
+    "hdr": false,
+    "lights": [
+        {
+            "name": "key_light",
+            "inputFile": {
+                "path": "./images/mon_set/mon_set_",
+                "ext": ".jpg",
+                "min": 0,
+                "max": 100,
+                "digit": 4
+            },
+            "idxPos": 50,
+            "exposure": 0.0,
+            "color": [1.0, 1.0, 1.0]
+        }
+    ]
+}
+```
+
+**XML** (format d'origine, voir `xml-format.md` pour le detail) :
 ```xml
 <?xml version="1.0"?>
 <LIGHTSETTUP>
@@ -112,7 +144,7 @@ Pour changer la couleur d'une lumiere :
 </LIGHTSETTUP>
 ```
 
-3. Lancer `main.py`, selectionner le XML dans la boite de dialogue.
+3. Lancer `main.py`, selectionner le fichier dans la boite de dialogue.
 
 ## Ajouter une deuxieme lumiere
 

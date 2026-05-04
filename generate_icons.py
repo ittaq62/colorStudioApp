@@ -1,6 +1,7 @@
 import os
 
-svg_dir = 'c:/Users/Constant/Documents/BUT3/colorStudioApp/colorStudioApp/colorstudio/icons'
+# chemin relatif au script (fonctionne quel que soit le poste)
+svg_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'colorstudio', 'icons')
 os.makedirs(svg_dir, exist_ok=True)
 
 icons = {

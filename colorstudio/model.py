@@ -200,6 +200,7 @@ class Scene:
         self._lights = []           # set of lights
         self._postProcesses = []    # set of postprocessing
         self._hdr = hdr
+        self._renderFile = None     # nom du fichier de rendu (optionnel)
 
     def addLight(self, light):
         self._lights.append(light)
@@ -220,6 +221,10 @@ class Scene:
         return returnLight
 
     def render(self):
+        if not self._lights:
+            # scene vide : retourne une petite image noire pour ne pas crasher
+            return np.zeros((4, 4, 3), dtype=np.float64)
+
         # init avec une copie du premier light pour eviter np.zeros + une addition
         # .copy() pour ne pas modifier le cache _currentImage du light
         imgOut = self._lights[0].render().copy()
@@ -252,10 +257,14 @@ class Scene:
         """
         returns a dictionary representation of the scene
         """
-        return {
+        d = {
             "hdr": self._hdr,
-            "lights": [l.toDict() for l in self._lights]
+            "lights": [l.toDict() for l in self._lights],
+            "postprocesses": [{"name": pp.__class__.__name__} for pp in self._postProcesses],
         }
+        if hasattr(self, '_renderFile') and self._renderFile:
+            d["renderFile"] = self._renderFile
+        return d
 
     def toJSON(self, filename):
         """
@@ -272,7 +281,8 @@ class Scene:
             data = json.load(f)
 
         self._hdr = data.get('hdr', False)
-        
+        self._renderFile = data.get('renderFile', None)
+
         # dict {'filename':[light]} to avoid multiple rendered-image file loads
         filenameLight = {}
 
@@ -330,12 +340,12 @@ class Scene:
             lightName = xl.attributes['name'].value
 
             # input file : <INPUTFILE ext=".jpg" min="0" max="100"  digit="4" >./images/set02/arnold_pass</INPUTFILE>
-            input = xl.getElementsByTagName('INPUTFILE')[0]
-            ext = input.attributes['ext'].value
-            min = int(input.attributes['min'].value)
-            max = int(input.attributes['max'].value)
-            digit = int(input.attributes['digit'].value)
-            imagesFile = input.firstChild.data
+            inputNode = xl.getElementsByTagName('INPUTFILE')[0]
+            ext = inputNode.attributes['ext'].value
+            nbMin = int(inputNode.attributes['min'].value)
+            nbMax = int(inputNode.attributes['max'].value)
+            digit = int(inputNode.attributes['digit'].value)
+            imagesFile = inputNode.firstChild.data
 
             # index light position : <IDXPOS>36</IDXPOS>
             idxPos = int(xl.getElementsByTagName('IDXPOS')[0].firstChild.data)
@@ -354,7 +364,7 @@ class Scene:
             light.setExposure(exp)
             light.setColor(np.asarray([rr, gg, bb]))
             light.setImageIdx(idxPos)
-            images = Images('', imagesFile, ext, max, digit, load=False)
+            images = Images('', imagesFile, ext, nbMax, digit, load=False)
             light.setImagesArray(images)
 
             # add current light to allLights

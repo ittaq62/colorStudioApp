@@ -133,6 +133,13 @@ class TestScene(unittest.TestCase):
         scene = model.Scene()
         self.assertIsNone(scene.getLightByName("inconnue"))
 
+    def test_render_empty_scene_no_crash(self):
+        # une scene sans lumiere ne doit pas crasher
+        scene = model.Scene()
+        out = scene.render()
+        self.assertEqual(len(out.shape), 3)
+        self.assertTrue(np.all(out == 0.0))
+
 
 class TestSceneFromXML(unittest.TestCase):
     """tests de Scene.fromXML pour le mode HDR"""

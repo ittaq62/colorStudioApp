@@ -200,6 +200,7 @@ class Scene:
         self._lights = []           # set of lights
         self._postProcesses = []    # set of postprocessing
         self._hdr = hdr
+        self._renderFile = None     # nom du fichier de rendu (optionnel)
 
     def addLight(self, light):
         self._lights.append(light)
@@ -256,10 +257,14 @@ class Scene:
         """
         returns a dictionary representation of the scene
         """
-        return {
+        d = {
             "hdr": self._hdr,
-            "lights": [l.toDict() for l in self._lights]
+            "lights": [l.toDict() for l in self._lights],
+            "postprocesses": [{"name": pp.__class__.__name__} for pp in self._postProcesses],
         }
+        if hasattr(self, '_renderFile') and self._renderFile:
+            d["renderFile"] = self._renderFile
+        return d
 
     def toJSON(self, filename):
         """
@@ -276,7 +281,8 @@ class Scene:
             data = json.load(f)
 
         self._hdr = data.get('hdr', False)
-        
+        self._renderFile = data.get('renderFile', None)
+
         # dict {'filename':[light]} to avoid multiple rendered-image file loads
         filenameLight = {}
 

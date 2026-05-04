@@ -29,17 +29,18 @@ py -3.13 -m pip install -r requirements.txt
 py -3.13 main.py
 ```
 
-Au demarrage une fenetre demande de selectionner un fichier XML de scene
-(par defaut `xml-postProcess-test.xml` qui marche avec les images presentes
-dans le repo). Le XML decrit chaque lumiere : le set d'images source,
-la position de la lumiere dans le set, l'exposition et la couleur RGB.
+Au demarrage une fenetre demande de selectionner un fichier de scene
+(**JSON** ou XML). Par defaut `xml-postProcess-test.json` qui marche
+avec les images presentes dans le repo. Le fichier de scene decrit
+chaque lumiere : le set d'images source, la position dans le set,
+l'exposition et la couleur RGB.
 
 ### Mode HDR
 
 Deux manieres d'activer le mode HDR :
-- dans le fichier XML, ajouter l'attribut `hdr="true"` sur la racine :
-  `<LIGHTSETTUP hdr="true">`. Un exemple est fourni dans `xml-hdr-demo.xml`.
-- dans l'interface, cocher la case "HDR mode" du panneau de controle.
+- dans le fichier de scene, mettre `"hdr": true` (JSON) ou `hdr="true"`
+  sur la racine XML. Exemple : `xml-hdr-demo.json`.
+- dans l'interface, cocher la case "HDR mode" dans la sidebar.
 
 En mode HDR les valeurs RGB du rendu ne sont plus clippees a 1.0.
 L'affichage applique un tone mapping de Reinhard (`x / (1+x)`) pour eviter
@@ -51,16 +52,19 @@ une image cramee.
 colorstudio/        package principal
     __init__.py
     model.py        Light, Scene, PostProcess (Saturation, AE_Ymean, PPClip)
-    widget.py       widgets PyQt6
-    ui_builder.py   construction de l'UI a partir d'une Scene
+    widget.py       widgets PyQt6 (CardWidget, CSDisplayWidget, ColorWheel, ...)
+    ui_builder.py   construction de l'UI a partir d'une Scene (QMainWindow unique)
     controller.py   logique de controle
-    utils.py        chargement images, helpers
+    utils.py        chargement images, helpers (toneMap, colorWheel, ...)
+    icons/          icones SVG de l'interface
+    styles.qss      theme sombre (dark mode)
 tests/              tests unitaires
     test_model.py
     test_utils.py
 main.py             point d'entree
 images/             sets d'images source
-xml-*.xml           scenes pre-configurees
+*.json / *.xml      scenes pre-configurees (les deux formats sont supportes)
+docs/               documentation detaillee
 ```
 
 ## Tests

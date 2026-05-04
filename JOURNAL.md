@@ -354,13 +354,62 @@ On a conscience que le projet n'est pas "finish" au sens industriel :
 On a prefere stabiliser et documenter ce qui marche plutot que d'ouvrir
 de nouveaux chantiers.
 
+## Phase 6.3 bis - Format JSON
+
+On a decide d'ajouter le support du format JSON en parallele du XML.
+Le XML c'est verbeux et un peu penible a ecrire a la main, un JSON c'est
+plus lisible et plus facile a generer depuis un script.
+
+Le principe :
+- `Scene.fromJSON(filename)` fait exactement la meme chose que `fromXML`
+  mais en lisant un dict JSON au lieu de parser du DOM XML
+- `Scene.toJSON(filename)` / `Light.toDict()` pour sauvegarder
+- dans `main.py` on detecte l'extension et on appelle le bon loader
+
+On a converti les 5 scenes XML existantes en JSON (a la main + verif
+que le rendu etait identique). Le `QFileDialog` accepte maintenant les
+deux formats. Le defaut passe a `xml-postProcess-test.json`.
+
+Un truc pas top : les JSON contiennent un champ `"postprocesses"` mais
+le loader ne le lit pas (meme stub que le XML). C'est pas bloquant
+parce que les post-process sont de toute facon ajoutes en dur par le
+`ui_builder`, mais c'est une incohérence qu'on documente ici.
+
+## Phase 6.3 ter - Refonte de l'interface
+
+Le dernier gros morceau : on est parti d'une UI "4 fenetres separees
+posees sur le bureau" (style 2019 / multi-window) et on est passe a une
+**fenetre unique** avec un layout moderne.
+
+Nouveau layout :
+- une `QMainWindow` avec un titre et un dark theme QSS
+- a gauche : sidebar scrollable avec des "cards" (sections) pour
+  chaque groupe de controles (Load/Save, HDR, Auto Exposure, Saturation,
+  une card par lumiere)
+- a droite en haut : l'image rendue (responsive au resize)
+- a droite en bas : le nuage 3D + la roue chromatique cote a cote
+- les deux zones droite/gauche sont separees par un splitter
+
+Pour le dark theme on a fait un fichier `.qss` (QSS = CSS pour Qt) qui
+est charge au demarrage. Ca donne un look professionnel et c'est facile
+a modifier sans toucher au code Python.
+
+Pour les icones on est passe de PNG (raster, mal adaptes au scaling) a
+des SVG inline (vectoriels, nets a toutes les tailles). Un petit script
+`generate_icons.py` les genere dans `colorstudio/icons/`.
+
+La roue chromatique a necessite un refactor du handling souris pour gerer
+le resize (avant la taille etait fixe a 480x480, maintenant elle s'adapte
+au widget). On calcule un ratio de scaling pour convertir les coordonnees
+souris en coordonnees "logiques" de la roue.
+
 ## Bilan chiffre
 
-- ~50 commits sur develop, repartis sur ~20 branches de feature
-- 20 tests unitaires (tous verts)
+- ~60 commits sur develop, repartis sur ~25 branches de feature
+- 23 tests unitaires (tous verts)
 - 3 bugs algorithmiques identifies, 2 corriges, 1 documente
 - 5 fichiers de documentation (README + docs/ + CHANGELOG + JOURNAL)
-- 1 evolution fonctionnelle majeure : mode HDR (chargement + render + UI + scene demo)
+- 3 evolutions fonctionnelles : mode HDR, format JSON, refonte UI
 - 0 dependance ajoutee, 1 dependance retiree (easygui)
 
 ## Ce qu'on ferait differemment

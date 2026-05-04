@@ -1,8 +1,11 @@
-# Format XML des scenes ColorStudio
+# Format des scenes ColorStudio (XML et JSON)
 
-Une scene ColorStudio est decrite dans un fichier XML charge au demarrage
-de l'application via la boite de dialogue (ou en fallback avec le fichier
-`xml-postProcess-test.xml` livre dans le repo).
+Une scene ColorStudio est decrite dans un fichier **XML** ou **JSON**
+charge au demarrage de l'application via la boite de dialogue (ou en
+fallback avec `xml-postProcess-test.json`).
+
+L'application detecte automatiquement le format selon l'extension du
+fichier (`.xml` → `Scene.fromXML`, `.json` → `Scene.fromJSON`).
 
 Un fichier de scene decrit :
 - un ensemble de lumieres (chacune = un dossier d'images pre-rendues + couleur + exposition)
@@ -149,3 +152,62 @@ Cet exemple pousse volontairement l'exposition a +2.5 EV pour demontrer
 l'interet du mode HDR : sans `hdr="true"` l'image serait totalement cramee
 (clippee a 1.0), avec HDR les hautes lumieres sont preservees et le tone
 mapping permet quand meme de voir l'image.
+
+---
+
+# Format JSON (alternative)
+
+Depuis avril 2025, les scenes peuvent aussi etre decrites en JSON. Le
+format est plus compact et plus facile a editer a la main.
+
+## Structure
+
+```json
+{
+    "hdr": true,
+    "lights": [
+        {
+            "name": "Light0",
+            "inputFile": {
+                "path": "./images/museum2x2/light01_",
+                "ext": ".jpg",
+                "min": 0,
+                "max": 100,
+                "digit": 4
+            },
+            "idxPos": 25,
+            "exposure": 2.5,
+            "color": [1.0, 1.0, 1.0]
+        }
+    ],
+    "postprocesses": [],
+    "renderFile": "render-hdr-demo.jpg"
+}
+```
+
+## Correspondance XML → JSON
+
+| XML                          | JSON                              |
+|------------------------------|-----------------------------------|
+| `<LIGHTSETTUP hdr="true">`   | `"hdr": true`                     |
+| `<LIGHT name="X">`           | `"name": "X"`                     |
+| `<INPUTFILE ext min max digit>path</INPUTFILE>` | `"inputFile": {"path", "ext", "min", "max", "digit"}` |
+| `<IDXPOS>N</IDXPOS>`         | `"idxPos": N`                     |
+| `<EXP>X</EXP>`               | `"exposure": X`                   |
+| `<COLOR><R>r</R><G>g</G><B>b</B></COLOR>` | `"color": [r, g, b]`  |
+| `<RENDERFILE>nom</RENDERFILE>` | `"renderFile": "nom"`           |
+
+## Champ `postprocesses` (stub)
+
+Le JSON peut contenir un champ `"postprocesses"` listant des noms de
+post-traitements, mais **ce champ n'est pas lu par `fromJSON`** pour
+l'instant (meme situation que le `<POSTPROCESS>` en XML). Les
+post-traitements sont ajoutes par code dans le `ui_builder`.
+
+## Fichiers JSON livres dans le repo
+
+- `xml-postProcess-test.json` (defaut au demarrage)
+- `xml-hdr-demo.json`
+- `xml-2019-6-6-15-28-37.json`
+- `xml-2019-6-7-22-38-31.json`
+- `xml-2019-6-7-22-47-1.json`

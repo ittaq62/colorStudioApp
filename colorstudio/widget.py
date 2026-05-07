@@ -9,6 +9,7 @@ Color Studio - Rémi Cozot 2019
 # import(s)
 # ----------------------------------------------------------------------------------
 
+from PyQt6.QtWidgets import QFrame
 import sys
 import moderngl
 
@@ -309,6 +310,10 @@ class CSQLightControlLayout(QHBoxLayout):
         self._max = maxE
         self._exposure = 0.0
         
+        self._colorPreview = QFrame()
+        self._colorPreview.setFixedSize(20, 20)
+        self._colorPreview.setStyleSheet("background-color: white; border: 1px solid #aaa; border-radius: 3px;")
+        
         # add button to layout
         left_group = QHBoxLayout()
         left_group.addWidget(self._deButton)
@@ -319,6 +324,7 @@ class CSQLightControlLayout(QHBoxLayout):
         
         self.addLayout(left_group)
         self.addWidget(self._sliderPosition)
+        self.addWidget(self._colorPreview)
         self.setStretch(1, 1) # Give slider more space
 
         # set onClick callback
@@ -346,7 +352,31 @@ class CSQLightControlLayout(QHBoxLayout):
         self._controller._event(self, [-1, self._exposure])
 
     def setColor(self):
-        self._controller._event(self, [2, None])
+        from PyQt6.QtWidgets import QColorDialog
+        from PyQt6.QtGui import QColor
+        import numpy as np
+        
+        current_rgb = self._controller._scene._npColorRGB
+        
+        color = QColorDialog.getColor(
+            QColor.fromRgbF(current_rgb[0], current_rgb[1], current_rgb[2]),
+            self.parentWidget() if self.parentWidget() else None,
+            "Select Light Color"
+        )
+        
+        if color.isValid():
+            r = color.redF()
+            g = color.greenF()
+            b = color.blueF()
+            new_color = np.array([r, g, b])
+            self.updatePreview(new_color)
+            self._controller._event(self, [2, new_color])
+
+    def updatePreview(self, rgb_array):
+        r_int = int(rgb_array[0] * 255)
+        g_int = int(rgb_array[1] * 255)
+        b_int = int(rgb_array[2] * 255)
+        self._colorPreview.setStyleSheet(f"background-color: rgb({r_int}, {g_int}, {b_int}); border: 1px solid #aaa; border-radius: 3px;")
 
     def sliderValueChanged(self, value):
         self._controller._event(self, [0, value])
@@ -504,102 +534,6 @@ class CSDisplayWidget(QWidget):
         # Trigger update of pixmap scaling on resize if we have image data
         # In a real app we'd store the last imgDouble, but for now we'll just wait for next update
         super().resizeEvent(event)
-
-# ----------------------------------------------------------------------------------
-class CSDisplayColorWheel(QWidget):
-    def __init__(self, controller, base_width=480):
-        super().__init__()
-        # controller
-        self._controller = controller
-
-        # Reference size
-        self._base_size = base_width
-
-        # title and window size
-        self.setWindowTitle("Color Wheel:: __ no active light __")
-
-        # Create base color wheel image once
-        colorWheelImg = (colorStudioUtils.colorWheel(self._base_size // 2) * 255).astype(np.uint8)
-        height, width, channel = colorWheelImg.shape
-        bytesPerLine = channel * width
-        qImg = QImage(colorWheelImg.tobytes(), width, height, bytesPerLine, QImage.Format.Format_RGB888)
-        
-        self._base_pixmap = QPixmap.fromImage(qImg)
-        
-        # Use a label specifically scaled
-        main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(0,0,0,0)
-        self._label = QLabel(self)
-        self._label.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-        main_layout.addWidget(self._label)
-
-        # mouse
-        self.setMouseTracking(True)
-        # Ensure label passes mouse events to us
-        self._label.setMouseTracking(True)
-        self._label.mousePressEvent = self.mousePressEvent
-        self._label.mouseMoveEvent = self.mouseMoveEvent
-
-    def resizeEvent(self, event):
-        # Scale pixmap to fit widget
-        scaled_pix = self._base_pixmap.scaled(
-            self.size(),
-            QtCore.Qt.AspectRatioMode.KeepAspectRatio,
-            QtCore.Qt.TransformationMode.SmoothTransformation
-        )
-        self._label.setPixmap(scaled_pix)
-        super().resizeEvent(event)
-
-    def mousePressEvent(self, e):
-        self._handle_mouse(e)
-
-    def mouseMoveEvent(self, e):
-        self._handle_mouse(e)
-        
-    def _handle_mouse(self, e):
-        # Convert coordinates back to base size
-        label_size = self._label.pixmap().size()
-        # Offset to start of the centered image
-        x_offset = (self.width() - label_size.width()) / 2
-        y_offset = (self.height() - label_size.height()) / 2
-        
-        # Adjust click pos relative to actual image
-        img_x = e.position().x() - x_offset
-        img_y = e.position().y() - y_offset
-        
-        # Avoid out of bounds
-        if img_x < 0 or img_y < 0 or img_x > label_size.width() or img_y > label_size.height():
-            return
-            
-        # Scale to match original generation logic logic
-        scale_x = self._base_size / label_size.width()
-        scale_y = self._base_size / label_size.height()
-        
-        x = img_x * scale_x
-        y = img_y * scale_y
-
-        # hsv color
-        hsv_array = np.zeros([1, 1, 3])
-
-        if colorStudioUtils.inRange2D([x, y], [0, 0], [self._base_size, self._base_size]):
-            # compute local coordinate
-            w, h = self._base_size, self._base_size
-            x_local = 2 * (x - w / 2) / w
-            y_local = 2 * (y - h / 2) / h
-            r = math.sqrt(x_local * x_local + y_local * y_local)
-
-            if r < 0.5:
-                hsv_array[0, 0, :] = [0.0, 0.0, 1.0]
-            elif r < 1.0:
-                hsv_array[0, 0, :] = [(math.atan2(x_local, y_local) + math.pi) / (2 * math.pi), 1.0, 1.0]
-            else:
-                hsv_array[0, 0, :] = [0.0, 0.0, 0.01]
-
-            rgb_hsv_array = skimage.color.hsv2rgb(hsv_array)
-            rgb = rgb_hsv_array[0, 0]
-
-            # controller
-            self._controller._event(self, [0, rgb])
 
 # ----------------------------------------------------------------------------------
 class CSQSaturationLayout(QVBoxLayout):

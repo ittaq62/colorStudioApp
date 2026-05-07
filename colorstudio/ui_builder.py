@@ -160,15 +160,6 @@ class CSUIAllBuilder(CSUIBuilder):
             skimage.transform.rescale(lightsScene.render(), 0.1, anti_aliasing=True, channel_axis=2), True)
         self._color3DWidget.setMinimumHeight(100) # Reduced to avoid pushing bottom
         
-        # Color Wheel
-        self._colorWheelWidget = colorStudioWidget.CSDisplayColorWheel(None, 300)
-        self._colorWheelWidget.setMinimumHeight(100) # Reduced to avoid pushing bottom
-        
-        # Controllers
-        colorWheelController = colorStudioController.CSColorWheelController(
-            lightsScene, None, [self._renderWidget, self._color3DWidget], self._colorWheelWidget)
-        self._colorWheelWidget._controller = colorWheelController
-
         # (5) Populating Sidebar
         title_label = QLabel("COLOR STUDIO")
         title_label.setObjectName("title")
@@ -203,9 +194,9 @@ class CSUIAllBuilder(CSUIBuilder):
             lightControl_layout = colorStudioWidget.CSQLightControlLayout(None, lightPosIdx=light._imageIdx)
             expoString = "{:+.2f}".format(light._exposure)
             lightControl_layout._exposureValueLabel.setText(expoString)
+            lightControl_layout.updatePreview(light._npColorRGB)
             
             lightController = colorStudioController.CSLightController(lightsScene, light, [self._renderWidget, self._color3DWidget])
-            lightController._colorWheelController = colorWheelController
             lightControl_layout._controller = lightController
             
             self.controls_layout.addWidget(colorStudioWidget.CardWidget(lightControl_layout, f"Light: {light._name}"))
@@ -228,7 +219,6 @@ class CSUIAllBuilder(CSUIBuilder):
         bottom_analytics.setMaximumHeight(250)
         
         bottom_layout.addWidget(self._color3DWidget)
-        bottom_layout.addWidget(self._colorWheelWidget)
         
         right_splitter.addWidget(bottom_analytics)
         

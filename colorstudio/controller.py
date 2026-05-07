@@ -40,9 +40,8 @@ class CSController:
 
 # ----------------------------------------------------------------------------------
 class CSLightController(CSController):
-    def __init__(self, root, light, widget, cwidget=None, cwController=None):
+    def __init__(self, root, light, widget, cwidget=None):
         super().__init__(root, light, widget, controlledWidget=cwidget)
-        self._colorWheelController = cwController
 
     def _event(self, widget, event):
         eventType = event[0]
@@ -61,9 +60,13 @@ class CSLightController(CSController):
                 w._update(img)
 
         if eventType == 2:
-            # tell colorWheel controller that self._scene is active light
-            self._colorWheelController._controlledWidget.setWindowTitle("Color Wheel::" + self._scene._name)
-            self._colorWheelController._scene = self._scene
+            # change light color
+            self._scene.setColor(event[1])
+            # render scene
+            img = self._sceneRoot.render()
+            # send new image to widget(s)
+            for w in self._widget:
+                w._update(img)
 
         if eventType == -1 or eventType == 1:
             # change light exposure
@@ -102,25 +105,6 @@ class CSAEController(CSController):
             # send new image to widget(s)
             for w in self._widget:
                 w._update(img)
-
-# ----------------------------------------------------------------------------------
-class CSColorWheelController(CSController):
-    def __init__(self, root, light, widget, cwidget=None):
-        super().__init__(root, light, widget, controlledWidget=cwidget)
-
-    def _event(self, widget, event):
-        eventType = event[0]
-        # 0 : change color
-
-        if eventType == 0:
-            # change light color
-            if self._scene is not None:
-                self._scene.setColor(event[1])  # event[1] color in RGB
-                # render scene
-                img = self._sceneRoot.render()
-                # send new image to widget(s)
-                for w in self._widget:
-                    w._update(img)
 
 # ----------------------------------------------------------------------------------
 class CSSaturationController(CSController):

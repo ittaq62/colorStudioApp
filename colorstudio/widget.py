@@ -258,12 +258,19 @@ class CSQLoadSaveLayout(QHBoxLayout):
         super().__init__()
 
         # create load and save button
-        self.loadButton = CSQIMGButton(qiconLoad, (50, 50), name="load button")
-        self.saveButton = CSQIMGButton(qiconSave, (50, 50), name="save button")
+        self.loadButton = CSQIMGButton(qiconLoad, (32, 32), name="load button")
+        self.saveButton = CSQIMGButton(qiconSave, (32, 32), name="save button")
+        self.loadButton.setToolTip("Ouvrir une scene (Ctrl+O)")
+        self.saveButton.setToolTip("Sauvegarder le rendu (Ctrl+S)")
 
         # add button to layout
         self.addWidget(self.loadButton)
         self.addWidget(self.saveButton)
+        self.addStretch(1)  # boutons a gauche, pas en plein milieu
+
+        # NB : les callbacks sont branches plus tard par CSUIAllBuilder
+        # via wireToMainWindow(mainWindow), parce qu'on a besoin de la
+        # main window pour declencher _action_open / _action_save_render
 
 # ----------------------------------------------------------------------------------
 class CSQLightControlLayout(QHBoxLayout):
@@ -402,10 +409,10 @@ class CSQAEControlLayout(QHBoxLayout):
         # create automatic exposure (switch) + control button
         self._aeButton = CSQIMGSwitchButton(uiAEonIMG, uiAEoffIMG, (32, 32), name="switch AE")
 
-        self._ieButton = QPushButton("EV (+)")
-        self._deButton = QPushButton("EV (-)")
-        self._ieButton.setFixedWidth(50)
-        self._deButton.setFixedWidth(50)
+        self._ieButton = QPushButton("EV +")
+        self._deButton = QPushButton("EV -")
+        self._ieButton.setMinimumWidth(60)
+        self._deButton.setMinimumWidth(60)
 
         # exposure value label
         self._exposureValueLabel = QLabel("+0.00")

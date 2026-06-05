@@ -489,35 +489,105 @@ def export_to_blend(scene, blend_output_path, source_scene_file=None, blender_ex
 
         # 3. invoque Blender en headless avec save_as_mainfile a la fin
         os.makedirs(blend_dir, exist_ok=True)
+
+        # IMPORTANT : on utilise des forward slashes dans le chemin du script
+        # (Python sur Windows accepte les deux, mais avec `repr()` les backslashes
+        # peuvent etre mal interpretes par certaines versions de Blender)
+        blend_path_for_script = blend_output_path.replace("\\", "/")
+
+        # Le save snippet : on attrape les exceptions et on les loggue clairement
+        # pour pouvoir diagnostiquer en cas d'echec silencieux
         save_snippet = (
-            f'\n\nimport bpy as _bpy\n'
-            f'_bpy.ops.wm.save_as_mainfile(filepath={blend_output_path!r})\n'
+            f'\n\n# ---- save_as_mainfile injecte par ColorStudio ----\n'
+            f'import bpy as _bpy\n'
+            f'_target = {blend_path_for_script!r}\n'
+            f'print(f"[ColorStudio] save_as_mainfile -> {{_target!r}}")\n'
+            f'try:\n'
+            f'    _bpy.ops.wm.save_as_mainfile(filepath=_target, copy=False, compress=True)\n'
+            f'    import os as _os\n'
+            f'    if _os.path.isfile(_target):\n'
+            f'        print(f"[ColorStudio] OK : fichier ecrit ({{_os.path.getsize(_target)}} bytes)")\n'
+            f'    else:\n'
+            f'        print(f"[ColorStudio] ERREUR : save_as_mainfile a retourne mais le fichier est absent")\n'
+            f'except Exception as _e:\n'
+            f'    print(f"[ColorStudio] ECHEC save_as_mainfile : {{type(_e).__name__}} : {{_e}}")\n'
+            f'    raise\n'
         )
         with open(tmp_script, "a", encoding="utf-8") as f:
             f.write(save_snippet)
 
+        # cwd = blend_dir : si Blender resout filepath en relatif pour une raison
+        # quelconque, le fichier atterrira au bon endroit.
         cmd = [blender_exe, "--background", "--python", tmp_script]
         result = subprocess.run(
             cmd,
             capture_output=True,
             text=True,
             timeout=timeout,
+            cwd=blend_dir,
+        )
+
+        # Construit un dump d'output pour le diagnostic
+        stdout_lines = (result.stdout or "").splitlines()
+        stderr_lines = (result.stderr or "").splitlines()
+        # tail = derniers 20 lignes utiles (filtre les barres de progression)
+        def _useful(lines, n=20):
+            filtered = [l for l in lines if "|" not in l or "%" not in l]
+            return filtered[-n:]
+        diag = (
+            "--- Blender stdout (tail) ---\n"
+            + "\n".join(_useful(stdout_lines))
+            + "\n--- Blender stderr (tail) ---\n"
+            + "\n".join(_useful(stderr_lines))
         )
 
         if result.returncode != 0:
-            stderr_tail = (result.stderr or "").splitlines()[-15:]
             raise RuntimeError(
-                f"Blender a echoue (exit={result.returncode}).\n"
-                f"stderr (15 dernieres lignes) :\n" + "\n".join(stderr_tail)
+                f"Blender a echoue (exit={result.returncode}).\n\n{diag}"
             )
 
-        if not os.path.isfile(blend_output_path):
-            raise RuntimeError(
-                "Blender a tourne sans erreur mais le .blend attendu n'a pas ete cree.\n"
-                f"Attendu : {blend_output_path}"
-            )
+        # Verification 1 : le chemin demande
+        if os.path.isfile(blend_output_path):
+            return blend_output_path, png_path
 
-        return blend_output_path, png_path
+        # Verification 2 : Blender a peut-etre sauve dans le cwd (= blend_dir)
+        # avec juste le nom de base. Si oui, on retourne ce chemin-la.
+        basename = os.path.basename(blend_output_path)
+        alt_path = os.path.join(blend_dir, basename)
+        if alt_path != blend_output_path and os.path.isfile(alt_path):
+            return alt_path, png_path
+
+        # Verification 3 : sur Windows, le Desktop est souvent redirige vers OneDrive.
+        # Si l'utilisateur a vise C:\Users\X\Desktop\..., regardons aussi dans OneDrive.
+        possible_redirects = []
+        if sys.platform.startswith("win") and "\\Desktop\\" in blend_output_path:
+            user_dir = os.path.expanduser("~")
+            onedrive_desktop = os.path.join(user_dir, "OneDrive", "Desktop", basename)
+            possible_redirects.append(onedrive_desktop)
+            # autre cas : OneDrive - Personal, OneDrive - <Org>
+            for d in os.listdir(user_dir):
+                full = os.path.join(user_dir, d)
+                if os.path.isdir(full) and d.lower().startswith("onedrive"):
+                    candidate = os.path.join(full, "Desktop", basename)
+                    if os.path.isfile(candidate):
+                        possible_redirects.append(candidate)
+        for p in possible_redirects:
+            if os.path.isfile(p):
+                return p, png_path
+
+        # Vraiment introuvable : erreur detaillee avec le dump complet
+        raise RuntimeError(
+            f"Blender a tourne (exit=0) mais le .blend n'est pas la ou prevu.\n"
+            f"Attendu : {blend_output_path}\n"
+            f"Aussi cherche dans : {alt_path}\n"
+            + (f"Et chemins OneDrive : {possible_redirects}\n" if possible_redirects else "")
+            + f"\n{diag}\n\n"
+            "Causes possibles :\n"
+            "  - Desktop est sur OneDrive et le chemin a ete redirige\n"
+            "  - Permissions d'ecriture refusees sur ce dossier\n"
+            "  - Antivirus / Windows Defender a bloque l'ecriture\n"
+            "Essayez d'enregistrer dans un autre dossier (Documents, par exemple)."
+        )
     finally:
         if os.path.exists(tmp_script):
             try:

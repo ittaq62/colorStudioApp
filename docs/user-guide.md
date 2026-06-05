@@ -2,15 +2,44 @@
 
 ## Lancement
 
-Apres avoir installe les dependances (`pip install -r requirements.txt`),
-lancer l'application depuis la racine du projet :
+### Si l'app est installee via pip
 
 ```
+colorstudio
+```
+
+ou avec un fichier de scene precis :
+
+```
+colorstudio xml-hdr-demo.json
+```
+
+### Sans installation (developpement)
+
+```
+py -3.13 -m pip install -r requirements.txt
 py -3.13 main.py
 ```
 
-Une boite de dialogue s'ouvre et demande de selectionner un fichier de
-scene (JSON ou XML). Les scenes preconfigurees sont a la racine du repo :
+### Avec le .exe Windows
+
+Double-cliquer sur `dist/colorstudio/colorstudio.exe` (voir README pour
+le build).
+
+### Au demarrage
+
+Au **tout premier lancement**, une boite de dialogue demande de
+selectionner un fichier de scene (JSON ou XML). Aux lancements suivants,
+**le dernier fichier ouvert est re-charge automatiquement** (memorise
+via `QSettings`).
+
+Pour changer de scene : menu **Fichier > Ouvrir** (Ctrl+O), ou
+**Fichier > Recemment ouverts** pour selectionner parmi les 5 derniers.
+
+Si la boite de dialogue est annulee au premier lancement, l'application
+utilise `xml-postProcess-test.json` par defaut.
+
+Les scenes preconfigurees sont a la racine du repo :
 
 - `xml-postProcess-test.json` (**defaut**) : scene legere qui utilise
   uniquement le set `light01_*` (le seul present dans le repo).
@@ -27,6 +56,7 @@ Si la boite de dialogue est annulee, l'application utilise le fichier
 L'application s'ouvre dans une **fenetre unique** avec un theme sombre :
 
 ```
++--- Menu : Fichier / Affichage / Aide ----------------------------+
 +---------------------+--------------------------------------------+
 |     SIDEBAR         |         IMAGE RENDUE                       |
 |  (scrollable)       |        (responsive au resize)              |
@@ -37,15 +67,55 @@ L'application s'ouvre dans une **fenetre unique** avec un theme sombre :
 |  [Saturation]       |          (moderngl)                        |
 |  [Light: xxx]       |                                            |
 +---------------------+--------------------------------------------+
+|  Status : fichier.json | LDR | 2 lumieres | 42.3 ms              |
++------------------------------------------------------------------+
 ```
 
 - Le splitter entre la sidebar et la zone image est deplacable
 - Le splitter vertical entre l'image et le nuage 3D aussi
 - Le tout est responsive (s'adapte au resize de la fenetre)
+- La geometrie de la fenetre est **memorisee** entre 2 lancements (QSettings)
 
 Le choix de couleur des lumieres se fait via le bouton palette de
 chaque card lumiere (voir plus bas), qui ouvre le picker natif Qt
 (`QColorDialog`).
+
+## Menu bar
+
+### Fichier
+
+| Action               | Raccourci      | Description                          |
+|----------------------|----------------|--------------------------------------|
+| Ouvrir une scene...  | Ctrl+O         | Boite de dialogue, JSON ou XML       |
+| Recemment ouverts    | (sous-menu)    | 5 derniers fichiers ouverts          |
+| Sauvegarder le rendu | Ctrl+S         | Exporte l'image courante en .png/.jpg |
+| Exporter la scene    | Ctrl+Shift+S   | Exporte la scene courante en JSON    |
+| Quitter              | Ctrl+Q         | Ferme l'application                  |
+
+### Affichage
+
+| Action          | Raccourci | Description                                |
+|-----------------|-----------|--------------------------------------------|
+| Basculer HDR    | Ctrl+H    | Switch LDR/HDR (equivalent a la case sidebar) |
+
+### Aide
+
+| Action            | Raccourci | Description                              |
+|-------------------|-----------|------------------------------------------|
+| Documentation     | F1        | Ouvre le dossier docs/                   |
+| Voir sur GitHub   |           | Ouvre le repo GitHub dans le navigateur  |
+| A propos          |           | Dialog avec version, auteurs, license    |
+
+## Status bar (bas de la fenetre)
+
+4 indicateurs permanents :
+
+| Zone        | Affiche                                           |
+|-------------|---------------------------------------------------|
+| **fichier** | nom du fichier de scene charge (hover = chemin complet) |
+| **mode**    | `LDR` ou `HDR`                                    |
+| **lumieres**| nombre de lights dans la scene                    |
+| **render**  | temps du dernier rendu en ms                      |
 
 ## Panneau de controle (sidebar)
 

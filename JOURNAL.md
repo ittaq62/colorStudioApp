@@ -427,14 +427,123 @@ Le `CSLightController` gere maintenant directement le changement de
 couleur (event type 2 = "change color"), au lieu de deleguer a un
 controller separe.
 
+## Phase finale - Transformation en "vraie application" (v1.0.0)
+
+A ce stade le projet remplissait deja toutes les exigences du TP, mais le
+prof nous a fait remarquer que c'etait encore un peu un "gros script" :
+pas de packaging, pas de menu, pas de fenetre principale "pro", pas de
+distribution. On a donc decide de pousser jusqu'a une vraie release v1.0.0.
+
+### Packaging Python (PEP 621)
+
+On a cree un `pyproject.toml` moderne avec :
+- metadata (nom, version, auteurs, description, classifiers PyPI)
+- dependances + dependances optionnelles (dev = PyInstaller + pytest)
+- `[project.scripts]` pour exposer une commande `colorstudio` (CLI)
+- `[project.gui-scripts]` pour `colorstudio-gui` (sans console derriere sous Windows)
+- `[tool.setuptools.package-data]` pour bundle les assets dans le wheel
+
+L'app est maintenant installable avec `pip install -e .` et on peut la
+lancer avec `colorstudio`, `python -m colorstudio` ou (en dev) `python main.py`.
+
+On a refactore `main.py` en un thin wrapper qui appelle `colorstudio.app:main()`.
+La logique de demarrage est maintenant centralisee dans `colorstudio/app.py`
+avec un `main(argv)` propre qui retourne un code de sortie.
+
+### Menu bar + status bar + About dialog
+
+On a vraiment fait une fenetre principale comme une application desktop normale :
+- menu bar avec Fichier (Ouvrir Ctrl+O, Recents, Save Ctrl+S, Export JSON, Quitter)
+- Affichage (Toggle HDR Ctrl+H)
+- Aide (Documentation F1, GitHub, A propos)
+- status bar avec fichier / mode LDR-HDR / nombre lumieres / temps de rendu en ms
+
+L'About dialog liste les 3 auteurs (nous), le credit Cozot 2019, et le
+lien GitHub.
+
+Pour le rendu en ms on a mis un `time.perf_counter()` autour du render initial.
+
+### Settings persistance
+
+Avec `QSettings` (API native PyQt qui ecrit dans le registre Windows
+sans qu'on s'en occupe) on persiste :
+- la geometrie de la fenetre (size + position) -> elle retrouve sa
+  taille au prochain lancement
+- le dernier fichier ouvert -> l'app le re-charge automatiquement
+- la liste des 5 fichiers recemment ouverts -> dispos dans le sous-menu
+
+Sympa, ca evite de re-selectionner le XML/JSON a chaque fois.
+
+### Splash screen + icone
+
+On avait un `splashScreen.jpg` qui trainait depuis 2019 et qui n'etait
+pas utilise. On l'a recycle :
+- comme splash au demarrage (QSplashScreen affiche pendant le chargement)
+- comme source pour generer `colorstudio/icons/app.ico` multi-resolution
+  via Pillow (script `generate_icons.py` etendu)
+- comme window icon (apparait dans la barre des taches Windows et dans
+  alt+tab)
+
+L'.ico est aussi utilise par PyInstaller pour decorer le .exe.
+
+### Error handling
+
+Avant, si on chargeait un fichier XML cassé ou inexistant l'app crashait
+avec une stack trace dans la console. Maintenant on attrape l'exception
+et on affiche un `QMessageBox.critical` avec le detail. Idem pour les
+saves : si imageio plante on a un dialog d'erreur.
+
+On a aussi ajoute du logging propre (`logging.basicConfig` avec format
+horodate) au lieu des derniers `print()`.
+
+### Rechargement a chaud
+
+Avant, pour changer de scene il fallait fermer l'app et relancer. Maintenant
+le menu Fichier > Ouvrir reconstruit le contenu central sur la nouvelle
+scene sans toucher au mainWindow. La methode `_rebuild_with_scene(scene)`
+deletes le QWidget central et en cree un nouveau.
+
+### PyInstaller bundle (.exe standalone)
+
+On a ecrit un `colorstudio.spec` qui bundle tout (Python + libs + assets)
+dans un dossier `dist/colorstudio/` avec un `colorstudio.exe` lancable en
+double-clic, sans Python installe.
+
+Premier test : 270 Mo le bundle complet, 11 Mo le .exe lui-meme. C'est
+gros mais normal avec PyQt6 + numpy + scikit-image + moderngl + Pillow.
+Pour reduire on pourrait exclure des modules Qt qu'on n'utilise pas
+(QtNetwork, QtPdf, ...) mais on est deja a quelque chose de distribuable.
+
+Le script `build_exe.py` wrap PyInstaller avec :
+- regen automatique des icons avant build
+- clean de build/ et dist/ avant
+- option --onefile (un seul .exe, plus lent au demarrage)
+- report final avec la taille produite
+
+### Difficultes
+
+- **PyInstaller + skimage + moderngl** : le bundle initial ne trouvait
+  pas certains backends. Fix : ajouter `skimage.color`, `skimage.transform`,
+  `moderngl`, `PyQt6.QtOpenGLWidgets` dans `hiddenimports`.
+- **Chemins relatifs** : avant on avait `./colorstudio/icons/` partout
+  dans le code, qui marchait juste si on lance depuis la racine du repo.
+  En mode bundle PyInstaller le cwd est ailleurs (sys._MEIPASS pour les
+  assets, dossier du .exe pour le reste). On a refactore pour utiliser
+  des chemins relatifs au fichier Python (`os.path.dirname(__file__)`)
+  partout, et une fonction `_get_asset_path()` qui detecte `sys._MEIPASS`.
+- **QSettings registre** : sous Windows, QSettings ecrit dans
+  `HKCU\Software\ColorStudio\ColorStudio`. On a teste qu'il survit a une
+  reinstallation. Pour reset il faut `regedit` ou `QSettings().clear()`.
+
 ## Bilan chiffre
 
-- ~70 commits sur develop, repartis sur ~30 branches de feature
+- ~80 commits sur develop, repartis sur ~35 branches de feature
 - 24 tests unitaires (tous verts)
 - 3 bugs algorithmiques identifies, 2 corriges, 1 documente
-- 5 fichiers de documentation (README + docs/ + CHANGELOG + JOURNAL)
-- 4 evolutions fonctionnelles : mode HDR, format JSON, refonte UI, palette native
-- 0 dependance ajoutee, 1 dependance retiree (easygui)
+- 7 fichiers de documentation (README + docs/ + CHANGELOG + JOURNAL + rapport)
+- 5 evolutions fonctionnelles : HDR, JSON, refonte UI, palette native, menu bar/.exe
+- 1 dependance ajoutee (Pillow pour l'icone), 1 retiree (easygui)
+- Version finale : 1.0.0 (semver), packagee et distribuable
 
 ## Ce qu'on ferait differemment
 

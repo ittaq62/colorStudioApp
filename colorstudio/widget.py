@@ -10,10 +10,9 @@ Color Studio - Rémi Cozot 2019
 # ----------------------------------------------------------------------------------
 
 import sys
-import math
 import moderngl
 import numpy as np
-import skimage
+# math et skimage etaient utilises par CSDisplayColorWheel (supprime, remplace par QColorDialog)
 
 from PyQt6.QtWidgets import (
     QApplication, QWidget, QLabel, QPushButton, QVBoxLayout, QHBoxLayout,

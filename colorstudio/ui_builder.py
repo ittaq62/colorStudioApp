@@ -11,6 +11,7 @@ Color Studio - Rémi Cozot 2019
 
 import logging
 import os
+import sys
 import time
 import webbrowser
 
@@ -423,7 +424,19 @@ class CSMainWindow(QMainWindow):
         from colorstudio.exporters import (
             export_to_blender, export_to_blend, find_blender_executable
         )
-        blender_exe = find_blender_executable()
+
+        # resolution du chemin Blender :
+        # 1. chemin sauvegarde dans QSettings (l'utilisateur l'a deja pointe une fois)
+        # 2. auto-detection
+        # 3. fallback : on demandera plus tard si .blend est choisi
+        cached_exe = self._settings.value("blender/exePath", type=str)
+        if cached_exe and os.path.isfile(cached_exe):
+            blender_exe = cached_exe
+        else:
+            blender_exe = find_blender_executable()
+            if blender_exe:
+                # memorise pour la prochaine fois
+                self._settings.setValue("blender/exePath", blender_exe)
 
         # construit le filtre : si Blender est detecte, .blend en defaut, sinon .py
         if blender_exe:
@@ -460,11 +473,13 @@ class CSMainWindow(QMainWindow):
                 if not filename.endswith(".blend"):
                     filename += ".blend"
                 if blender_exe is None:
-                    raise FileNotFoundError(
-                        "Blender n'a pas ete trouve sur ce systeme.\n"
-                        "Installer Blender depuis https://www.blender.org/download/\n"
-                        "et l'ajouter au PATH, ou choisir le format .py a la place."
-                    )
+                    # auto-detection a echoue : on propose a l'utilisateur de pointer
+                    # vers son blender.exe a la main
+                    blender_exe = self._ask_user_for_blender_path()
+                    if blender_exe is None:
+                        # l'utilisateur a annule -> on annule l'export
+                        self.statusBar().clearMessage()
+                        return
                 self.statusBar().showMessage("Export Blender en cours (peut prendre 10-30s)...", 0)
                 # on force le refresh visuel du status bar avant l'invocation bloquante
                 QApplication.processEvents()
@@ -504,6 +519,52 @@ class CSMainWindow(QMainWindow):
                 self, "Erreur",
                 f"Impossible d'exporter vers Blender :\n\n{exc}"
             )
+
+    def _ask_user_for_blender_path(self):
+        """
+        propose a l'utilisateur de pointer vers l'executable Blender.
+        retourne le chemin choisi (et le sauvegarde dans QSettings) ou None
+        si l'utilisateur annule.
+        """
+        # 1. dialogue d'info pour expliquer ce qu'on attend
+        reply = QMessageBox.question(
+            self,
+            "Blender introuvable",
+            "ColorStudio n'a pas trouve Blender automatiquement sur ce systeme.\n\n"
+            "Voulez-vous indiquer manuellement le chemin de l'executable Blender ?\n"
+            "  - Windows : blender.exe (dans le dossier d'install)\n"
+            "  - Linux/macOS : le binaire blender\n\n"
+            "(Cliquer Non pour annuler l'export)",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.Yes,
+        )
+        if reply != QMessageBox.StandardButton.Yes:
+            return None
+
+        # 2. file dialog pour pointer vers l'exe
+        if sys.platform.startswith("win"):
+            file_filter = "Executable Blender (blender.exe);;All files (*.*)"
+            start_dir = r"C:\Program Files\Blender Foundation"
+        elif sys.platform == "darwin":
+            file_filter = "Application Blender (Blender);;All files (*)"
+            start_dir = "/Applications"
+        else:
+            file_filter = "Executable Blender (blender);;All files (*)"
+            start_dir = "/usr/bin"
+
+        path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Selectionner l'executable Blender",
+            start_dir,
+            file_filter,
+        )
+        if not path or not os.path.isfile(path):
+            return None
+
+        # 3. memorise pour la prochaine fois
+        self._settings.setValue("blender/exePath", path)
+        logger.info("chemin Blender selectionne par l'utilisateur : %s", path)
+        return path
 
     # ----------------------------------------------------------- view actions
     def _action_toggle_hdr(self, checked):

@@ -7,6 +7,7 @@ Le script genere peut etre execute avec : `blender --python scene_blender.py`
 ou colle dans l'editeur Python de Blender.
 """
 
+import glob
 import math
 import os
 import shutil
@@ -207,36 +208,111 @@ print("[ColorStudio -> Blender] termine. Cliquer F12 pour render.")
 def find_blender_executable():
     """
     cherche l'executable Blender sur le systeme.
-    retourne le chemin trouve ou None.
+
+    Strategie (ordre) :
+    1. variable d'env COLORSTUDIO_BLENDER si definie
+    2. PATH (commande `blender`)
+    3. patterns glob sur les emplacements standards de chaque OS
+       (couvre TOUTES les versions de Blender, pas une liste hardcodee)
+    4. Registre Windows (cle BlenderFoundation)
+
+    Retourne le chemin trouve ou None si introuvable.
     """
-    # 1. dans le PATH
+    # 1. variable d'environnement explicite (utile pour les CI / setups custom)
+    env_path = os.environ.get("COLORSTUDIO_BLENDER")
+    if env_path and os.path.isfile(env_path):
+        return env_path
+
+    # 2. PATH
     p = shutil.which("blender")
     if p:
         return p
 
-    # 2. emplacements connus sur Windows
+    # 3. patterns glob par OS (matche n'importe quelle version)
+    candidates = []
     if sys.platform.startswith("win"):
-        candidates = [
-            r"C:\Program Files\Blender Foundation\Blender 4.5\blender.exe",
-            r"C:\Program Files\Blender Foundation\Blender 4.4\blender.exe",
-            r"C:\Program Files\Blender Foundation\Blender 4.3\blender.exe",
-            r"C:\Program Files\Blender Foundation\Blender 4.2\blender.exe",
-            r"C:\Program Files\Blender Foundation\Blender 4.1\blender.exe",
-            r"C:\Program Files\Blender Foundation\Blender 4.0\blender.exe",
-            r"C:\Program Files\Blender Foundation\Blender 3.6\blender.exe",
-        ]
-        for c in candidates:
-            if os.path.isfile(c):
-                return c
+        local_app = os.environ.get("LOCALAPPDATA", "")
+        program_files = os.environ.get("ProgramFiles", r"C:\Program Files")
+        program_files_x86 = os.environ.get("ProgramFiles(x86)", r"C:\Program Files (x86)")
 
-    # 3. emplacements connus sur macOS
-    if sys.platform == "darwin":
-        candidates = [
-            "/Applications/Blender.app/Contents/MacOS/Blender",
+        patterns = [
+            # install standard (system-wide)
+            os.path.join(program_files, "Blender Foundation", "Blender *", "blender.exe"),
+            os.path.join(program_files_x86, "Blender Foundation", "Blender *", "blender.exe"),
+            # install user-only
+            os.path.join(local_app, "Programs", "Blender Foundation", "Blender *", "blender.exe"),
+            # Steam
+            os.path.join(program_files_x86, "Steam", "steamapps", "common", "Blender", "blender.exe"),
+            os.path.join(program_files, "Steam", "steamapps", "common", "Blender", "blender.exe"),
+            # Microsoft Store / WindowsApps (rare, pas toujours executable)
+            os.path.join(local_app, "Microsoft", "WindowsApps", "blender.exe"),
         ]
-        for c in candidates:
-            if os.path.isfile(c):
-                return c
+        for pat in patterns:
+            candidates.extend(glob.glob(pat))
+
+    elif sys.platform == "darwin":
+        candidates.extend(glob.glob("/Applications/Blender.app/Contents/MacOS/Blender"))
+        # versions multiples (Blender 4.x.app, etc.)
+        candidates.extend(glob.glob("/Applications/Blender */Blender.app/Contents/MacOS/Blender"))
+        candidates.extend(glob.glob(
+            os.path.expanduser("~/Applications/Blender.app/Contents/MacOS/Blender")
+        ))
+
+    else:
+        # Linux : essaie des emplacements connus + flatpak/snap
+        for pat in [
+            "/usr/bin/blender",
+            "/usr/local/bin/blender",
+            "/opt/blender/blender",
+            "/opt/blender-*/blender",
+            "/snap/blender/current/blender",
+            os.path.expanduser("~/.local/bin/blender"),
+            os.path.expanduser("~/Applications/Blender*/blender"),
+        ]:
+            candidates.extend(glob.glob(pat))
+        # flatpak (utilise `flatpak run org.blender.Blender`)
+        flatpak = shutil.which("flatpak")
+        if flatpak:
+            try:
+                out = subprocess.run(
+                    [flatpak, "info", "org.blender.Blender"],
+                    capture_output=True, text=True, timeout=5
+                )
+                if out.returncode == 0:
+                    # on retourne un "command" qui sera detecte specialement
+                    # (le caller doit savoir comment l'invoquer)
+                    pass  # pas trivial a integrer, on skip pour l'instant
+            except Exception:
+                pass
+
+    # filtre : garde seulement les fichiers executables, trie pour avoir la
+    # version la plus haute en premier ('Blender 5.0' > 'Blender 4.5' lexico)
+    candidates = [c for c in candidates if os.path.isfile(c)]
+    candidates.sort(reverse=True)
+    if candidates:
+        return candidates[0]
+
+    # 4. Registre Windows (Blender s'enregistre comme application installee)
+    if sys.platform.startswith("win"):
+        try:
+            import winreg
+            for hive, sub in [
+                (winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\BlenderFoundation\Blender"),
+                (winreg.HKEY_CURRENT_USER, r"SOFTWARE\BlenderFoundation\Blender"),
+                (winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\Classes\blendfile\shell\open\command"),
+            ]:
+                try:
+                    with winreg.OpenKey(hive, sub) as key:
+                        val, _ = winreg.QueryValueEx(key, "")
+                        # le val peut etre `"C:\...\blender.exe" "%1"` -> extraire le chemin
+                        if val.startswith('"'):
+                            val = val.split('"')[1]
+                        if os.path.isfile(val):
+                            return val
+                except OSError:
+                    continue
+        except ImportError:
+            pass
 
     return None
 

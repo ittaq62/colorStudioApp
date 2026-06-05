@@ -539,35 +539,68 @@ class CSQAEControlLayout(QHBoxLayout):
 
 # ----------------------------------------------------------------------------------
 class CSDisplayWidget(QWidget):
+    """
+    Widget d'affichage de l'image rendue.
+    L'image est toujours scaled au widget en gardant le ratio d'aspect.
+    Stocke le pixmap original pour pouvoir le rescaler lors d'un resize sans
+    perdre la qualite et sans declencher de boucle de feedback de taille.
+    """
     def __init__(self, controller, title=None):
         super().__init__()
         self._controller = controller
         if title:
             self.setWindowTitle(title)
-        
+
+        # IMPORTANT : on doit pouvoir SHRINKER le widget. Sans cette politique,
+        # QLabel veut etre au moins de la taille de son pixmap -> bouble de feedback
+        # entre _update() et le layout (l'image zoome a chaque render).
+        from PyQt6.QtWidgets import QSizePolicy
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        self.setMinimumSize(1, 1)
+
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(0, 0, 0, 0)
-        
+
         self._label = QLabel(self)
         self._label.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
+        # politique Ignored = le label ne propage pas son sizeHint au layout.
+        # C'est le widget parent qui decide sa taille, le label suit.
+        self._label.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Ignored)
+        self._label.setMinimumSize(1, 1)
         main_layout.addWidget(self._label)
 
-        # setFirstPixmap
-        # Use a default size if template is not yet ready or accessible
+        # cache du pixmap original (non scaled) pour pouvoir le rescaler dynamiquement
+        self._originalPixmap = None
+
+        # pixmap initial : fond gris fonce
         w, h = 800, 600
         try:
             w, h = colorStudioUIBuilder.CSUIBuilder.template['uiRenderWidget_size']
         except (KeyError, TypeError):
             pass
-            
-        img = (np.ones((h, w, 3)) * 30).astype(np.uint8) # Darker initial background
+        img = (np.ones((h, w, 3)) * 30).astype(np.uint8)
         height, width, channel = img.shape
         bytesPerLine = channel * width
         qImg = QImage(img.tobytes(), width, height, bytesPerLine, QImage.Format.Format_RGB888)
-        pixmap = QPixmap.fromImage(qImg)
-        self._label.setPixmap(pixmap)
+        self._originalPixmap = QPixmap.fromImage(qImg)
+        self._refreshScaledPixmap()
+
+    def _refreshScaledPixmap(self):
+        """re-scale le pixmap original a la taille courante du widget."""
+        if self._originalPixmap is None:
+            return
+        target_size = self.size()
+        if target_size.width() < 1 or target_size.height() < 1:
+            return
+        scaled = self._originalPixmap.scaled(
+            target_size,
+            QtCore.Qt.AspectRatioMode.KeepAspectRatio,
+            QtCore.Qt.TransformationMode.SmoothTransformation,
+        )
+        self._label.setPixmap(scaled)
 
     def _update(self, imgDouble):
+        """met a jour l'image affichee a partir d'une numpy array RGB float [0,1]."""
         if imgDouble.max() > 1.0:
             imgDisplay = colorStudioUtils.toneMap(imgDouble)
         else:
@@ -576,17 +609,16 @@ class CSDisplayWidget(QWidget):
         height, width, channel = img.shape
         bytesPerLine = channel * width
         qImg = QImage(img.tobytes(), width, height, bytesPerLine, QImage.Format.Format_RGB888)
-        pixmap = QPixmap.fromImage(qImg).scaled(
-            self.size(), 
-            QtCore.Qt.AspectRatioMode.KeepAspectRatio, 
-            QtCore.Qt.TransformationMode.SmoothTransformation
-        )
-        self._label.setPixmap(pixmap)
+        self._originalPixmap = QPixmap.fromImage(qImg)
+        # IMPORTANT : on garde l'original (haute resolution) et on le re-scale a la taille
+        # courante du widget. Sans ca, le widget zoomait progressivement parce que le
+        # label adoptait la taille du pixmap (qui etait deja scaled) -> feedback layout.
+        self._refreshScaledPixmap()
 
     def resizeEvent(self, event):
-        # Trigger update of pixmap scaling on resize if we have image data
-        # In a real app we'd store the last imgDouble, but for now we'll just wait for next update
+        # re-scale le pixmap quand la fenetre change de taille (drag du splitter)
         super().resizeEvent(event)
+        self._refreshScaledPixmap()
 
 # ----------------------------------------------------------------------------------
 class CSQSaturationLayout(QVBoxLayout):

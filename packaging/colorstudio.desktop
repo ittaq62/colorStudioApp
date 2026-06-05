@@ -1,0 +1,26 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=ColorStudio
+GenericName=Light Compositor
+Comment=Compositing par sources lumineuses, mode HDR, post-process
+Comment[en]=Light-based image compositing with HDR support
+Comment[fr]=Compositing par sources lumineuses, mode HDR, post-process
+
+# A adapter selon l'installation :
+#   - si installe via pip : Exec=colorstudio
+#   - si bundle PyInstaller : Exec=/opt/colorstudio/colorstudio
+Exec=colorstudio %f
+TryExec=colorstudio
+
+# A adapter selon l'emplacement de l'icone :
+#   - apres install pip : ~/.local/share/colorstudio/app.png
+#   - bundle systeme : /opt/colorstudio/icons/app.png
+Icon=colorstudio
+
+Terminal=false
+Categories=Graphics;2DGraphics;Photography;
+MimeType=application/json;application/xml;
+Keywords=light;compositing;hdr;rendering;color;
+StartupWMClass=ColorStudio
+StartupNotify=true

@@ -120,15 +120,18 @@ class CSMainWindow(QMainWindow):
 
         self.setWindowTitle(title)
 
-        # icone de la fenetre (barre des taches Windows + alt+tab)
-        ico_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'icons', 'app.ico')
-        if os.path.exists(ico_path):
-            self.setWindowIcon(QIcon(ico_path))
-        else:
-            repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-            splash = os.path.join(repo_root, 'splashScreen.jpg')
-            if os.path.exists(splash):
-                self.setWindowIcon(QIcon(splash))
+        # icone de la fenetre : .ico (Windows) ou .png (Linux/macOS).
+        # On essaye les deux dans l'ordre puis fallback sur splashScreen.jpg
+        icons_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'icons')
+        repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        for candidate in (
+            os.path.join(icons_dir, 'app.ico'),
+            os.path.join(icons_dir, 'app.png'),
+            os.path.join(repo_root, 'splashScreen.jpg'),
+        ):
+            if os.path.exists(candidate):
+                self.setWindowIcon(QIcon(candidate))
+                break
 
         # taille par defaut (sera ecrasee par QSettings si une geometrie est memorisee)
         s_width, s_height = colorStudioWidget.getScreenSize()

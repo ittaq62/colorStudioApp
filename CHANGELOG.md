@@ -6,6 +6,20 @@ APP, 2025/2026).
 
 ## [2025-04] - Reprise SAE 6A
 
+### Ajoute (phase 3 : palette de couleur native)
+- Remplacement de la roue chromatique custom (`CSDisplayColorWheel`) par un
+  `QColorDialog` natif Qt (palette + hex + RGB/HSV/CMYK + pipette ecran)
+- Carre de preview 20x20px a cote de chaque slider de lumiere, affichant
+  la couleur courante et mis a jour en temps reel
+- Methode `CSQLightControlLayout.updatePreview(rgb)` pour rafraichir le preview
+
+### Retire (phase 3)
+- Widget `CSDisplayColorWheel` (~100 lignes) — remplace par `QColorDialog`
+- Controller `CSColorWheelController` (~20 lignes) — plus necessaire,
+  `CSLightController` gere directement le changement de couleur (event type 2)
+- Entrees mortes `uiColorWheelWidget_pos` / `uiColorWheelWidget_size` dans
+  les templates de `ui_builder.py`
+
 ### Ajoute (phase 2 : JSON + refonte UI)
 - Support du format **JSON** comme alternative au XML pour decrire les scenes
 - Methodes `Scene.fromJSON()`, `Scene.toJSON()`, `Light.toDict()`, `Scene.toDict()`

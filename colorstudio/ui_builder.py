@@ -249,28 +249,44 @@ class CSMainWindow(QMainWindow):
 
     # ------------------------------------------------------------ status bar
     def _build_status_bar(self):
-        """construit le status bar avec 4 labels permanents"""
+        """construit le status bar avec 4 labels permanents + prefixes clairs"""
         sb = QStatusBar(self)
         self.setStatusBar(sb)
 
-        self._sb_file = QLabel("aucun fichier")
-        self._sb_mode = QLabel("LDR")
-        self._sb_lights = QLabel("0 lumieres")
-        self._sb_render = QLabel("- ms")
+        # chaque label est prefixe pour que l'utilisateur sache ce qu'il regarde
+        self._sb_file = QLabel("Fichier : aucun")
+        self._sb_file.setToolTip("Nom du fichier de scene actuellement charge")
+
+        self._sb_mode = QLabel("Mode : LDR")
+        self._sb_mode.setToolTip(
+            "Mode d'affichage :\n"
+            "  LDR = valeurs clippees a [0, 1]\n"
+            "  HDR = tone mapping de Reinhard sur les valeurs > 1"
+        )
+
+        self._sb_lights = QLabel("Lumieres : 0")
+        self._sb_lights.setToolTip("Nombre de lumieres dans la scene")
+
+        self._sb_render = QLabel("Rendu : -")
+        self._sb_render.setToolTip(
+            "Temps de calcul du dernier rendu (en millisecondes).\n"
+            "Plus c'est bas, plus l'app reagit vite aux sliders."
+        )
 
         for w in (self._sb_file, self._sb_mode, self._sb_lights, self._sb_render):
-            w.setMinimumWidth(80)
+            w.setMinimumWidth(100)
             sb.addPermanentWidget(w)
 
     def update_status_bar(self, filename=None, hdr=False, n_lights=0, render_ms=None):
         """met a jour les infos affichees en bas. appelable a tout moment."""
         if filename:
-            self._sb_file.setText(os.path.basename(filename))
-            self._sb_file.setToolTip(filename)
-        self._sb_mode.setText("HDR" if hdr else "LDR")
-        self._sb_lights.setText(f"{n_lights} lumiere{'s' if n_lights != 1 else ''}")
+            self._sb_file.setText(f"Fichier : {os.path.basename(filename)}")
+            self._sb_file.setToolTip(f"Chemin complet :\n{filename}")
+        self._sb_mode.setText(f"Mode : {'HDR' if hdr else 'LDR'}")
+        plural = "s" if n_lights != 1 else ""
+        self._sb_lights.setText(f"Lumiere{plural} : {n_lights}")
         if render_ms is not None:
-            self._sb_render.setText(f"{render_ms:.1f} ms")
+            self._sb_render.setText(f"Rendu : {render_ms:.1f} ms")
 
     # ----------------------------------------------------------- file actions
     def _action_open(self):
@@ -542,11 +558,17 @@ class CSUIAllBuilder(CSUIBuilder):
         loadSaveLayout = colorStudioWidget.CSQLoadSaveLayout(CSUIBuilder.uiLoadIMG, CSUIBuilder.uiSaveIMG)
         loadSaveLayout.loadButton.clicked.connect(self.mainWindow._action_open)
         loadSaveLayout.saveButton.clicked.connect(self.mainWindow._action_save_render)
-        self.controls_layout.addWidget(colorStudioWidget.CardWidget(loadSaveLayout, "Project"))
+        self.controls_layout.addWidget(colorStudioWidget.CardWidget(
+            loadSaveLayout, "Projet",
+            subtitle="Ouvrir une scene (Ctrl+O) ou sauvegarder le rendu (Ctrl+S)",
+        ))
 
         # HDR Card
         hdr_layout = colorStudioWidget.CSQHDRControlLayout(lightsScene, [self._renderWidget, self._color3DWidget])
-        self.controls_layout.addWidget(colorStudioWidget.CardWidget(hdr_layout, "HDR Mode"))
+        self.controls_layout.addWidget(colorStudioWidget.CardWidget(
+            hdr_layout, "Mode HDR",
+            subtitle="Garde les valeurs > 1 et applique un tone mapping a l'affichage",
+        ))
 
         # Auto Exposure Card
         ae = colorStudioModel.AE_Ymean(Ytarget=0.5, exposure=0.0)
@@ -554,7 +576,10 @@ class CSUIAllBuilder(CSUIBuilder):
         AE_layout = colorStudioWidget.CSQAEControlLayout(None)
         ae_controller = colorStudioController.CSAEController(lightsScene, ae, [self._renderWidget, self._color3DWidget])
         AE_layout._controller = ae_controller
-        self.controls_layout.addWidget(colorStudioWidget.CardWidget(AE_layout, "Auto Exposure"))
+        self.controls_layout.addWidget(colorStudioWidget.CardWidget(
+            AE_layout, "Exposition automatique",
+            subtitle="Ramene automatiquement la luminance moyenne de l'image a 0.5",
+        ))
 
         # Saturation Card
         sat = colorStudioModel.Saturation()
@@ -562,19 +587,31 @@ class CSUIAllBuilder(CSUIBuilder):
         sat_layout = colorStudioWidget.CSQSaturationLayout(None)
         sat_controller = colorStudioController.CSSaturationController(lightsScene, sat, [self._renderWidget, self._color3DWidget])
         sat_layout._controller = sat_controller
-        self.controls_layout.addWidget(colorStudioWidget.CardWidget(sat_layout, "Color & Saturation"))
+        self.controls_layout.addWidget(colorStudioWidget.CardWidget(
+            sat_layout, "Saturation",
+            subtitle="Lineaire = intensite des couleurs. Vibrance = saturation douce (non lineaire)",
+        ))
 
-        # Lights Cards
+        # Lights Cards (une card par lumiere de la scene)
         for light in lightsScene._lights:
             lightControl_layout = colorStudioWidget.CSQLightControlLayout(None, lightPosIdx=light._imageIdx)
-            expoString = "{:+.2f}".format(light._exposure)
-            lightControl_layout._exposureValueLabel.setText(expoString)
+            # synchronise l'etat affiche avec celui du modele
+            lightControl_layout._exposure = light._exposure
+            lightControl_layout._updateExposureLabel()
+            lightControl_layout._posLabel.setText(str(light._imageIdx))
             lightControl_layout.updatePreview(light._npColorRGB)
 
             lightController = colorStudioController.CSLightController(lightsScene, light, [self._renderWidget, self._color3DWidget])
             lightControl_layout._controller = lightController
 
-            self.controls_layout.addWidget(colorStudioWidget.CardWidget(lightControl_layout, f"Light: {light._name}"))
+            # subtitle = explication de ce qu'on peut faire dans cette card
+            self.controls_layout.addWidget(
+                colorStudioWidget.CardWidget(
+                    lightControl_layout,
+                    f"Lumiere : {light._name}",
+                    subtitle="Exposition (EV), couleur, position sur la trajectoire",
+                )
+            )
 
         self.controls_layout.addStretch()
 

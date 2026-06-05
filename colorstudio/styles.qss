@@ -47,7 +47,33 @@ QLabel#sectionHeader {
     color: #888888;
     text-transform: uppercase;
     margin-top: 10px;
-    margin-bottom: 5px;
+    margin-bottom: 2px;
+}
+
+/* sous-titre descriptif sous le titre de chaque card (1 ligne explicative) */
+QLabel#sectionSubtitle {
+    font-size: 11px;
+    font-weight: normal;
+    color: #777777;
+    margin-bottom: 4px;
+}
+
+/* label de position d'une lumiere (valeur du slider) */
+QLabel#posLabel {
+    font-family: 'Consolas', monospace;
+    font-size: 11px;
+    color: #BBBBBB;
+    background-color: transparent;
+}
+
+/* tooltip plus contraste pour etre lisible sur le dark theme */
+QToolTip {
+    background-color: #2D2D2D;
+    color: #E0E0E0;
+    border: 1px solid #007AFF;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
 }
 
 /* Sliders */

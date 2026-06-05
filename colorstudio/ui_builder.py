@@ -187,6 +187,11 @@ class CSMainWindow(QMainWindow):
         act_save_scene.triggered.connect(self._action_export_scene)
         file_menu.addAction(act_save_scene)
 
+        act_export_blender = QAction("Exporter vers &Blender (.py)...", self)
+        act_export_blender.setShortcut(QKeySequence("Ctrl+B"))
+        act_export_blender.triggered.connect(self._action_export_blender)
+        file_menu.addAction(act_export_blender)
+
         file_menu.addSeparator()
 
         act_quit = QAction("&Quitter", self)
@@ -393,6 +398,44 @@ class CSMainWindow(QMainWindow):
             QMessageBox.critical(
                 self, "Erreur",
                 f"Impossible d'exporter la scene :\n\n{exc}"
+            )
+
+    def _action_export_blender(self):
+        """exporte la scene courante en script Python Blender"""
+        if self._scene is None or not self._scene._lights:
+            QMessageBox.information(
+                self, "Export Blender",
+                "Aucune scene chargee ou scene vide : rien a exporter."
+            )
+            return
+        filename, _ = QFileDialog.getSaveFileName(
+            self,
+            "Exporter la scene vers Blender (script Python)",
+            "scene_blender.py",
+            "Python files (*.py)",
+        )
+        if not filename:
+            return
+        try:
+            from colorstudio.exporters import export_to_blender
+            source_file = getattr(self._scene, '_sourceFile', None)
+            export_to_blender(self._scene, filename, source_scene_file=source_file)
+            self.statusBar().showMessage(f"Export Blender : {filename}", 5000)
+            logger.info("scene exportee vers Blender dans %s", filename)
+            # info utilisateur : comment lancer le script
+            QMessageBox.information(
+                self, "Export Blender termine",
+                f"Script genere : {filename}\n\n"
+                "Pour l'utiliser dans Blender :\n"
+                "  - en CLI :   blender --python " + os.path.basename(filename) + "\n"
+                "  - dans Blender : ouvrir l'editeur Scripting, charger ce fichier, Run.\n\n"
+                "ATTENTION : le script efface la scene courante. A executer sur un .blend vide."
+            )
+        except Exception as exc:
+            logger.exception("echec de l'export Blender")
+            QMessageBox.critical(
+                self, "Erreur",
+                f"Impossible d'exporter vers Blender :\n\n{exc}"
             )
 
     # ----------------------------------------------------------- view actions

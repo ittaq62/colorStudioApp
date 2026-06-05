@@ -242,5 +242,66 @@ class TestSceneFromJSON(unittest.TestCase):
         np.testing.assert_array_almost_equal(color, [1.0, 0.5, 0.0])
 
 
+class TestBlenderExport(unittest.TestCase):
+    """tests de colorstudio.exporters.export_to_blender"""
+
+    def setUp(self):
+        model.Light.lightNb = 0
+        self._tmpFiles = []
+
+    def tearDown(self):
+        for p in self._tmpFiles:
+            if os.path.exists(p):
+                os.unlink(p)
+
+    def _makeTmp(self):
+        fd, path = tempfile.mkstemp(suffix=".py")
+        os.close(fd)
+        self._tmpFiles.append(path)
+        return path
+
+    def _makeScene(self, n_lights=1):
+        scene = model.Scene()
+        for i in range(n_lights):
+            light = model.Light(name=f"L{i}")
+            imgs = type('Imgs', (), {})()
+            imgs._images = []
+            imgs._pathImage = './images/'
+            imgs._baseImageName = 'fake_'
+            imgs._extImageName = '.jpg'
+            imgs._nbImage = 10
+            imgs._nbDigit = 4
+            light._ImagesArray = imgs
+            light._imageIdx = i
+            light.setColor(np.array([1.0, 0.5, 0.2]))
+            light.setExposure(float(i))
+            scene.addLight(light)
+        return scene
+
+    def test_export_generates_valid_python(self):
+        # le script genere doit etre du Python compilable
+        from colorstudio.exporters import export_to_blender
+        scene = self._makeScene(n_lights=2)
+        path = self._makeTmp()
+        export_to_blender(scene, path, source_scene_file='test.json')
+        with open(path) as f:
+            code = f.read()
+        # doit etre du Python valide
+        compile(code, path, 'exec')
+        # doit contenir au moins les noms des lights
+        self.assertIn("L0", code)
+        self.assertIn("L1", code)
+        # doit referencer bpy
+        self.assertIn("import bpy", code)
+
+    def test_export_empty_scene_raises(self):
+        # exporter une scene sans light leve une ValueError
+        from colorstudio.exporters import export_to_blender
+        scene = model.Scene()
+        path = self._makeTmp()
+        with self.assertRaises(ValueError):
+            export_to_blender(scene, path)
+
+
 if __name__ == "__main__":
     unittest.main()

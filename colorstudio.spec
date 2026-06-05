@@ -60,6 +60,9 @@ hiddenimports = [
     'imageio.plugins.freeimage',
     'PyQt6.QtOpenGLWidgets',
     'PyQt6.QtOpenGL',
+    # exporters est importe lazyly depuis _action_export_blender,
+    # PyInstaller ne le voit pas par analyse statique
+    'colorstudio.exporters',
 ]
 
 

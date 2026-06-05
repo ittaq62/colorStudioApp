@@ -48,3 +48,8 @@ else:
         sizes = [(16, 16), (32, 32), (48, 48), (64, 64), (128, 128), (256, 256)]
         img.save(ico_path, format='ICO', sizes=sizes)
         print(f"app.ico genere ({len(sizes)} resolutions) : {ico_path}")
+
+        # generation aussi d'un PNG 256x256 pour Linux (.desktop file utilise un PNG/SVG)
+        png_path = os.path.join(svg_dir, 'app.png')
+        img.resize((256, 256), Image.LANCZOS).save(png_path, format='PNG')
+        print(f"app.png genere (256x256) : {png_path}")

@@ -120,15 +120,18 @@ class CSMainWindow(QMainWindow):
 
         self.setWindowTitle(title)
 
-        # icone de la fenetre (barre des taches Windows + alt+tab)
-        ico_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'icons', 'app.ico')
-        if os.path.exists(ico_path):
-            self.setWindowIcon(QIcon(ico_path))
-        else:
-            repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-            splash = os.path.join(repo_root, 'splashScreen.jpg')
-            if os.path.exists(splash):
-                self.setWindowIcon(QIcon(splash))
+        # icone de la fenetre : .ico (Windows) ou .png (Linux/macOS).
+        # On essaye les deux dans l'ordre puis fallback sur splashScreen.jpg
+        icons_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'icons')
+        repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        for candidate in (
+            os.path.join(icons_dir, 'app.ico'),
+            os.path.join(icons_dir, 'app.png'),
+            os.path.join(repo_root, 'splashScreen.jpg'),
+        ):
+            if os.path.exists(candidate):
+                self.setWindowIcon(QIcon(candidate))
+                break
 
         # taille par defaut (sera ecrasee par QSettings si une geometrie est memorisee)
         s_width, s_height = colorStudioWidget.getScreenSize()
@@ -186,6 +189,11 @@ class CSMainWindow(QMainWindow):
         act_save_scene.setShortcut(QKeySequence("Ctrl+Shift+S"))
         act_save_scene.triggered.connect(self._action_export_scene)
         file_menu.addAction(act_save_scene)
+
+        act_export_blender = QAction("Exporter vers &Blender (.py)...", self)
+        act_export_blender.setShortcut(QKeySequence("Ctrl+B"))
+        act_export_blender.triggered.connect(self._action_export_blender)
+        file_menu.addAction(act_export_blender)
 
         file_menu.addSeparator()
 
@@ -393,6 +401,44 @@ class CSMainWindow(QMainWindow):
             QMessageBox.critical(
                 self, "Erreur",
                 f"Impossible d'exporter la scene :\n\n{exc}"
+            )
+
+    def _action_export_blender(self):
+        """exporte la scene courante en script Python Blender"""
+        if self._scene is None or not self._scene._lights:
+            QMessageBox.information(
+                self, "Export Blender",
+                "Aucune scene chargee ou scene vide : rien a exporter."
+            )
+            return
+        filename, _ = QFileDialog.getSaveFileName(
+            self,
+            "Exporter la scene vers Blender (script Python)",
+            "scene_blender.py",
+            "Python files (*.py)",
+        )
+        if not filename:
+            return
+        try:
+            from colorstudio.exporters import export_to_blender
+            source_file = getattr(self._scene, '_sourceFile', None)
+            export_to_blender(self._scene, filename, source_scene_file=source_file)
+            self.statusBar().showMessage(f"Export Blender : {filename}", 5000)
+            logger.info("scene exportee vers Blender dans %s", filename)
+            # info utilisateur : comment lancer le script
+            QMessageBox.information(
+                self, "Export Blender termine",
+                f"Script genere : {filename}\n\n"
+                "Pour l'utiliser dans Blender :\n"
+                "  - en CLI :   blender --python " + os.path.basename(filename) + "\n"
+                "  - dans Blender : ouvrir l'editeur Scripting, charger ce fichier, Run.\n\n"
+                "ATTENTION : le script efface la scene courante. A executer sur un .blend vide."
+            )
+        except Exception as exc:
+            logger.exception("echec de l'export Blender")
+            QMessageBox.critical(
+                self, "Erreur",
+                f"Impossible d'exporter vers Blender :\n\n{exc}"
             )
 
     # ----------------------------------------------------------- view actions
@@ -641,7 +687,10 @@ class CSUIAllBuilder(CSUIBuilder):
         )
         bottom_vlayout.addWidget(cloudTitle)
 
-        cloudSubtitle = QLabel("Nuage de points 3D : chaque point = un pixel, position = sa couleur RGB")
+        cloudSubtitle = QLabel(
+            "Chaque point = un pixel, position = sa couleur RGB. "
+            "Drag = pan, molette = zoom, double-clic = reset."
+        )
         cloudSubtitle.setObjectName("sectionSubtitle")
         cloudSubtitle.setWordWrap(True)
         bottom_vlayout.addWidget(cloudSubtitle)

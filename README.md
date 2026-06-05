@@ -77,6 +77,7 @@ ou **Fichier > Recemment ouverts**.
 | Ctrl+O    | Ouvrir une scene                    |
 | Ctrl+S    | Sauvegarder le rendu en image       |
 | Ctrl+Shift+S | Exporter la scene en JSON        |
+| Ctrl+B    | Exporter la scene vers Blender (.py)|
 | Ctrl+H    | Basculer le mode HDR                |
 | Ctrl+Q    | Quitter                             |
 | F1        | Documentation                       |
@@ -100,7 +101,9 @@ Deux formats supportes (detectes par extension) :
 - **JSON** : moderne, lisible. Voir `docs/xml-format.md`.
 - **XML** : historique, conserve pour compat 2019.
 
-## Construire un .exe standalone
+## Construire un binaire standalone
+
+### Windows
 
 ```bash
 py -3.13 -m pip install -r requirements-dev.txt
@@ -115,6 +118,41 @@ Mode "un seul fichier" (.exe portable) :
 py -3.13 build_exe.py --onefile
 ```
 
+### Linux
+
+```bash
+# prerequis (Debian/Ubuntu) :
+sudo apt install python3 python3-pip python3-venv libxcb-cursor0 libegl1
+python3 -m pip install -r requirements-dev.txt
+
+# build du binaire + integration desktop (icone + raccourci menu)
+chmod +x build_linux.sh
+./build_linux.sh
+```
+
+Le binaire est dans `dist/colorstudio/colorstudio`. Le script copie aussi tout
+dans `~/.local/share/colorstudio/` et cree :
+- un symlink `~/.local/bin/colorstudio` (lancable depuis le shell)
+- un raccourci `~/.local/share/applications/colorstudio.desktop` (menu DE)
+- une icone `~/.local/share/icons/hicolor/256x256/apps/colorstudio.png`
+
+Pour build sans installer :
+```bash
+./build_linux.sh --no-install
+```
+
+Pour une installation systeme (root), copier `dist/colorstudio/` dans `/opt/colorstudio/`
+puis adapter le fichier `packaging/colorstudio.desktop` (champ `Exec=`).
+
+### macOS
+
+```bash
+python3 -m pip install -r requirements-dev.txt
+python3 -m PyInstaller colorstudio.spec --clean
+```
+
+Le binaire est dans `dist/colorstudio/colorstudio`.
+
 ## Structure du projet
 
 ```
@@ -127,8 +165,9 @@ colorstudio/              package principal
     ui_builder.py         CSMainWindow (menu, status, settings) + CSUIAllBuilder
     controller.py         controleurs (light, AE, saturation)
     utils.py              chargement images, toneMap, colorWheel, ...
-    icons/                icones SVG + app.ico (multi-resolution)
+    icons/                icones SVG + app.ico (Windows) + app.png (Linux)
     styles.qss            dark theme
+    exporters.py          export Blender (Fichier > Exporter vers Blender, Ctrl+B)
 
 tests/                    tests unitaires (24 tests)
     test_model.py

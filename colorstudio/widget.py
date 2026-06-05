@@ -103,16 +103,18 @@ class QModernGLWidget(QOpenGLWidget):
 class HelloWorld2D:
     def __init__(self, ctx, reserve='1024MB'):
         self.ctx = ctx
+        # le shader applique d'abord le zoom puis le pan : (vertex * zoom) - pan
         self.prog = self.ctx.program(
             vertex_shader='''
                 #version 330
                 uniform vec2 Pan;
+                uniform float Zoom;
                 in vec2 in_vert;
                 in vec4 in_color;
                 out vec4 v_color;
                 void main() {
                     v_color = in_color;
-                    gl_Position = vec4(in_vert - Pan, 0.0, 1.0);
+                    gl_Position = vec4(in_vert * Zoom - Pan, 0.0, 1.0);
                 }
             ''',
             fragment_shader='''
@@ -124,12 +126,19 @@ class HelloWorld2D:
                 }
             ''',
         )
+        # init Pan + Zoom a leurs valeurs neutres
+        self.prog['Pan'].value = (0.0, 0.0)
+        self.prog['Zoom'].value = 1.0
 
         self.vbo = ctx.buffer(reserve='1024MB', dynamic=True)
         self.vao = ctx.vertex_array(self.prog, [(self.vbo, '2f 4f', 'in_vert', 'in_color')])
 
     def pan(self, pos):
         self.prog['Pan'].value = pos
+
+    def zoom(self, factor):
+        """factor > 1 = zoom avant, factor < 1 = zoom arriere"""
+        self.prog['Zoom'].value = float(factor)
 
     def clear(self, color=(0, 0, 0, 0)):
         self.ctx.clear(*color)
@@ -184,14 +193,30 @@ pan_tool = PanTool()
 
 # ----------------------------------------------------------------------------------
 class MyWidgetGL(QModernGLWidget):
+    """
+    Widget OpenGL qui affiche le nuage de points 3D des couleurs de l'image.
+    Controles :
+    - drag souris : pan (deplacer la vue)
+    - molette     : zoom in/out (par 1.2x par tick)
+    - double-clic : reset pan + zoom
+    """
     def __init__(self, img, scene=None):
         super().__init__()
         self.VBOdata = colorStudioUtils.img2chromaVertices(img, False)
         self.setWindowTitle("3D Color")
+        self._zoomLevel = 1.0
+        self.setToolTip(
+            "Nuage 3D des couleurs de l'image\n"
+            "  - Drag souris : deplacer la vue\n"
+            "  - Molette : zoom avant / arriere\n"
+            "  - Double-clic : reset pan + zoom"
+        )
 
     def init(self):
         self.ctx.viewport = (0, 0, 480, 480)
         self.scene = HelloWorld2D(self.ctx)
+        # applique le zoom courant (au cas ou il a ete change avant l'init OpenGL)
+        self.scene.zoom(self._zoomLevel)
 
     def render(self):
         self.screen.use()
@@ -211,6 +236,34 @@ class MyWidgetGL(QModernGLWidget):
     def mouseReleaseEvent(self, evt):
         pan_tool.stop_drag(evt.position().x() / 512, evt.position().y() / 512)
         self.scene.pan(pan_tool.value)
+        self.update()
+
+    def mouseDoubleClickEvent(self, evt):
+        """double-clic = reset pan + zoom"""
+        pan_tool.total_x = 0.0
+        pan_tool.total_y = 0.0
+        pan_tool.delta_x = 0.0
+        pan_tool.delta_y = 0.0
+        pan_tool.drag = False
+        self._zoomLevel = 1.0
+        if hasattr(self, 'scene'):
+            self.scene.pan((0.0, 0.0))
+            self.scene.zoom(self._zoomLevel)
+        self.update()
+
+    def wheelEvent(self, evt):
+        """molette = zoom (1 tick = facteur 1.2)"""
+        # angleDelta().y() retourne typiquement +/- 120 par cran
+        delta = evt.angleDelta().y()
+        if delta == 0:
+            return
+        factor = 1.2 if delta > 0 else (1.0 / 1.2)
+        new_zoom = self._zoomLevel * factor
+        # clamping pour eviter de zoomer dans le vide ou de devenir invisible
+        new_zoom = max(0.1, min(20.0, new_zoom))
+        self._zoomLevel = new_zoom
+        if hasattr(self, 'scene'):
+            self.scene.zoom(self._zoomLevel)
         self.update()
 
     def _update(self, img):

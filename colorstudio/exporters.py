@@ -2,9 +2,15 @@
 """
 Exporteurs de scenes ColorStudio vers d'autres outils.
 
-Pour l'instant : export Blender via un script Python autonome.
-Le script genere peut etre execute avec : `blender --python scene_blender.py`
-ou colle dans l'editeur Python de Blender.
+Export Blender :
+  ColorStudio NE FAIT PAS de rendu 3D - il composite des images pre-rendues.
+  L'export Blender doit donc refleter ca honnetement :
+  - artefact principal : l'image composee finale (PNG)
+  - dans Blender : un plan textured avec cette image (ce que l'utilisateur voit)
+  - chaque lumiere = un Empty (marqueur) en cercle avec custom properties
+    (couleur, EV, image source, index) -> on ne pretend PAS que ce sont
+    de vraies lights 3D, parce qu'elles ne le sont pas dans CS
+  - la camera regarde directement le plan
 """
 
 import glob
@@ -17,26 +23,30 @@ import tempfile
 from datetime import datetime
 
 
-def export_to_blender(scene, output_path, source_scene_file=None):
+def export_to_blender(scene, output_path, source_scene_file=None, image_path=None):
     """
-    genere un script Python Blender qui recree le setup d'eclairage de la scene
-    ColorStudio dans une scene Blender vide.
+    genere un script Python Blender qui recree la scene ColorStudio dans Blender.
 
-    Pour chaque Light de la scene, on cree une POINT light Blender avec :
-    - sa couleur RGB (canal `light.color`)
-    - une intensite calculee depuis l'exposition EV (canal `light.energy`)
-    - une position en placeholder (cercle autour de l'origine) car ColorStudio
-      ne connait pas les positions 3D reelles (juste un index dans la trajectoire)
-    - un commentaire qui mappe la light Blender vers ses images source
+    Strategie d'export : ColorStudio composite des images, pas de 3D.
+      - le script importe l'image composee (image_path) comme un plan textured
+        au centre de la scene
+      - chaque Light devient un Empty en cercle autour du plan, avec les
+        proprietes ColorStudio en custom properties (cs_color, cs_exposure_ev,
+        cs_image_source, cs_image_idx)
+      - optionnellement, chaque Empty est accompagne d'un POINT light Blender
+        avec la meme couleur (pour avoir aussi un light 3D si on veut, mais
+        clairement separe de l'Empty marqueur)
 
     Parameters
     ----------
     scene : model.Scene
-        la scene ColorStudio a exporter
     output_path : str
         chemin du script .py a generer
     source_scene_file : str ou None
-        chemin du fichier .json/.xml source, pour info dans le header
+        chemin du fichier .json/.xml source (pour les commentaires)
+    image_path : str ou None
+        chemin de l'image composee a integrer dans Blender. Si None, le script
+        ne creera pas de plan textured (juste les Empties).
     """
     lights = scene._lights
     if not lights:
@@ -44,23 +54,20 @@ def export_to_blender(scene, output_path, source_scene_file=None):
 
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-    # construit les data des lights (couleur normalisee + energie en watts)
+    # construit les data des lights : ce sont des marqueurs, PAS des lights 3D
     lights_data = []
     n = max(1, len(lights))
     for i, light in enumerate(lights):
         r, g, b = float(light._npColorRGB[0]), float(light._npColorRGB[1]), float(light._npColorRGB[2])
-        # energie : 1000 W (= equivalent point light typique) * 2^EV
-        energy = 1000.0 * (2.0 ** float(light._exposure))
-        # position en cercle de rayon 5m autour de l'origine, hauteur 3m
+        # position en cercle de rayon 4m autour du plan
         angle = 2.0 * math.pi * i / n
-        pos_x = 5.0 * math.cos(angle)
-        pos_y = 5.0 * math.sin(angle)
-        pos_z = 3.0
+        pos_x = 4.0 * math.cos(angle)
+        pos_y = 4.0 * math.sin(angle)
+        pos_z = 1.5
 
         lights_data.append({
             "name": light._name,
             "color": (r, g, b),
-            "energy": energy,
             "exposure_ev": float(light._exposure),
             "position": (pos_x, pos_y, pos_z),
             "image_path": _images_info(light),
@@ -71,6 +78,7 @@ def export_to_blender(scene, output_path, source_scene_file=None):
     script = _build_blender_script(
         lights_data=lights_data,
         scene_file=source_scene_file,
+        composited_image_path=image_path,
         hdr=scene._hdr,
         timestamp=timestamp,
     )
@@ -84,7 +92,7 @@ def export_to_blender(scene, output_path, source_scene_file=None):
 
 
 def _images_info(light):
-    """retourne le chemin du set d'images source d'une light (pour les commentaires)"""
+    """retourne le pattern du set d'images source d'une light (pour les commentaires)"""
     arr = light._ImagesArray
     if arr is None:
         return "(pas d'images)"
@@ -92,32 +100,45 @@ def _images_info(light):
     return f"{base}<{arr._nbImage:0{arr._nbDigit}d}>{arr._extImageName}"
 
 
-def _build_blender_script(lights_data, scene_file, hdr, timestamp):
+def _build_blender_script(lights_data, scene_file, composited_image_path, hdr, timestamp):
     """assemble le code Python Blender complet"""
+    has_image = composited_image_path is not None and os.path.exists(composited_image_path)
+    # chemin absolu pour Blender (Windows : \\ -> /, evite les soucis d'escape)
+    img_path_for_script = ""
+    if has_image:
+        img_path_for_script = os.path.abspath(composited_image_path).replace("\\", "/")
+
     header = f'''# -*- coding: utf-8 -*-
 """
-Script Blender genere par ColorStudio le {timestamp}.
+Scene Blender generee par ColorStudio le {timestamp}.
 
-Pour l'utiliser :
-  - Soit en CLI :  blender --python {os.path.basename("scene_blender.py")}
-  - Soit dans Blender : ouvrir l'editeur Scripting, charger ce fichier, Run Script
+ColorStudio ne fait PAS de rendu 3D : il composite des images pre-rendues en
+multipliant chacune par une couleur et une exposition (color * 2^EV) puis en
+les sommant. Le resultat est UNE IMAGE FINALE, pas une scene 3D.
 
-Ce script :
-  1. clear la scene courante (a faire avec precaution sur un .blend existant !)
-  2. ajoute {len(lights_data)} POINT lights, une pour chaque Light de ColorStudio
-  3. positionne les lights en cercle autour de l'origine (placeholder)
-  4. configure la camera + un cube simple comme sujet de demo
+Ce script reflete fidelement cela :
+  - il importe l'image COMPOSEE (le resultat de ColorStudio) comme texture
+    sur un plan 16:9 au centre de la scene
+  - chaque "lumiere" ColorStudio devient un Empty marqueur en cercle autour
+    du plan, avec les proprietes ColorStudio en CUSTOM PROPERTIES
+    (cs_color, cs_exposure_ev, cs_image_source, cs_image_idx)
+  - les Empties ne sont PAS de vraies lights : on ne pretend pas que ColorStudio
+    fait de la 3D. Ce sont juste des marqueurs visuels avec metadata.
+
+Si vous voulez utiliser ces lights comme de vraies POINT lights Blender :
+  - decommentez la section "add_real_point_light" plus bas
+  - adaptez les positions en fonction de votre scene 3D reelle
 
 Source ColorStudio :
   fichier : {scene_file or "(non specifie)"}
   mode    : {"HDR" if hdr else "LDR"}
   lights  : {len(lights_data)}
+  image composee : {img_path_for_script or "(non incluse)"}
 
-NOTE sur les positions :
-  ColorStudio compose des images pre-rendues indexees par position le long
-  d'une trajectoire. Les positions 3D reelles des lumieres ne sont pas
-  connues. Les positions ci-dessous sont des placeholders (cercle 5m de rayon).
-  Adapter manuellement dans Blender pour matcher votre scene.
+Pour utiliser :
+  - en CLI : blender --background --python {os.path.basename("scene_blender.py")}
+  - dans Blender : Scripting > charger le fichier > Run Script
+ATTENTION : le script EFFACE la scene courante.
 """
 
 import bpy
@@ -125,55 +146,132 @@ import math
 
 
 def clear_scene():
-    """vide la scene courante (objets, lights, cameras)"""
+    """vide la scene Blender courante (objets, lights, cameras)"""
     bpy.ops.object.select_all(action='SELECT')
     bpy.ops.object.delete(use_global=False)
+    # vide aussi les images orphelines + materiaux
+    for img in list(bpy.data.images):
+        bpy.data.images.remove(img)
+    for mat in list(bpy.data.materials):
+        bpy.data.materials.remove(mat)
 
 
-def add_demo_sujet():
-    """ajoute un cube + un sol pour avoir un sujet visible"""
-    bpy.ops.mesh.primitive_cube_add(size=2, location=(0, 0, 1))
-    bpy.context.object.name = "DemoCube"
+def add_image_plane(image_path, plane_size=4.0):
+    """
+    cree un plan 16:9 textured avec l'image composee ColorStudio au centre.
+    L'image est emissive : pas besoin de lighting Blender pour la voir.
+    """
+    if not image_path:
+        return None
 
-    bpy.ops.mesh.primitive_plane_add(size=20, location=(0, 0, 0))
-    bpy.context.object.name = "DemoFloor"
+    # ratio 16:9 (les rendus ColorStudio sont en general dans ce ratio)
+    width = plane_size
+    height = plane_size * 9.0 / 16.0
+
+    # cree le mesh plane
+    bpy.ops.mesh.primitive_plane_add(size=1.0, location=(0, 0, 0))
+    plane = bpy.context.object
+    plane.name = "ColorStudio_Render"
+    plane.scale = (width, height, 1.0)
+    plane.rotation_euler = (math.pi / 2, 0, 0)  # debout face camera
+
+    # cree un material avec une image emissive
+    mat = bpy.data.materials.new(name="ColorStudio_RenderMat")
+    mat.use_nodes = True
+    nodes = mat.node_tree.nodes
+    links = mat.node_tree.links
+    nodes.clear()
+
+    # output node
+    out = nodes.new(type='ShaderNodeOutputMaterial')
+    out.location = (400, 0)
+
+    # emission node (pas besoin d'eclairer le plan, l'image se voit toute seule)
+    emission = nodes.new(type='ShaderNodeEmission')
+    emission.location = (200, 0)
+    emission.inputs['Strength'].default_value = 1.0
+
+    # image texture node
+    img_node = nodes.new(type='ShaderNodeTexImage')
+    img_node.location = (-100, 0)
+    try:
+        img_node.image = bpy.data.images.load(image_path)
+    except Exception as e:
+        print(f"  ! impossible de charger l'image {{image_path}} : {{e}}")
+
+    links.new(img_node.outputs['Color'], emission.inputs['Color'])
+    links.new(emission.outputs['Emission'], out.inputs['Surface'])
+
+    plane.data.materials.append(mat)
+    return plane
 
 
-def add_camera():
-    """ajoute une camera qui regarde le cube depuis (8, -8, 5)"""
-    bpy.ops.object.camera_add(location=(8, -8, 5))
+def add_camera(distance=5.0):
+    """camera positionnee face au plan ColorStudio"""
+    bpy.ops.object.camera_add(location=(0, -distance, 0.5))
     cam = bpy.context.object
-    cam.rotation_euler = (math.radians(63), 0, math.radians(45))
+    cam.name = "ColorStudio_Camera"
+    cam.rotation_euler = (math.pi / 2, 0, 0)
     bpy.context.scene.camera = cam
 
 
-def add_light(name, color, energy, exposure_ev, position, image_path, image_idx):
-    """cree une POINT light Blender avec la config ColorStudio"""
+def add_light_marker(name, color, exposure_ev, position, image_path, image_idx):
+    """
+    Ajoute un Empty (marqueur visuel) qui represente une lumiere ColorStudio.
+    Les proprietes ColorStudio sont stockees en custom properties.
+
+    On NE cree PAS de vraie POINT light parce que les "lights" ColorStudio
+    n'ont pas de position 3D reelle - elles sont des multiplicateurs sur des
+    images pre-rendues. Faire une vraie light induirait en erreur.
+    """
+    bpy.ops.object.empty_add(type='SPHERE', radius=0.2, location=position)
+    obj = bpy.context.object
+    obj.name = f"CS_{{name}}"
+    # custom properties : on peut les lire/inspecter dans Blender (panneau Properties > Object)
+    obj["cs_color_r"] = color[0]
+    obj["cs_color_g"] = color[1]
+    obj["cs_color_b"] = color[2]
+    obj["cs_exposure_ev"] = exposure_ev
+    obj["cs_image_source"] = image_path
+    obj["cs_active_image_idx"] = image_idx
+    # color de l'Empty dans le viewport (visualisation rapide de la couleur de light)
+    obj.color = (color[0], color[1], color[2], 1.0)
+    # NB : pour voir cette couleur dans le viewport, activer
+    #   Viewport Shading > Object Color (Properties N panel)
+    print(f"  + Marker '{{name}}' : color={{color}} EV={{exposure_ev}} pos={{position}}")
+
+
+# Optionnel : si on veut une VRAIE point light Blender en plus du marqueur
+# (utile pour avoir un eclairage 3D en partant de la couleur de la light CS),
+# decommenter cette fonction et son appel dans la boucle plus bas.
+def add_real_point_light(name, color, exposure_ev, position):
+    """ajoute en plus une vraie POINT light Blender avec la couleur ColorStudio"""
     bpy.ops.object.light_add(type='POINT', location=position)
     obj = bpy.context.object
-    obj.name = name
-    light_data = obj.data
-    light_data.color = color
-    light_data.energy = energy
-    # on stocke l'info ColorStudio dans les custom properties pour reference
-    obj["cs_exposure_ev"] = exposure_ev
-    obj["cs_source_images"] = image_path
-    obj["cs_active_image_idx"] = image_idx
-    print(f"  + Light '{{name}}' : color={{color}} energy={{energy:.0f}}W pos={{position}}")
+    obj.name = f"CS_{{name}}_Light"
+    obj.data.color = color
+    # energy reference : 100 W * 2^EV (arbitraire mais coherent avec l'echelle EV)
+    obj.data.energy = 100.0 * (2.0 ** exposure_ev)
 
 
 # =============================================================================
 # Setup de la scene
 # =============================================================================
-print("[ColorStudio -> Blender] init de la scene...")
+print("[ColorStudio -> Blender] init...")
 clear_scene()
-add_demo_sujet()
-add_camera()
+'''
+
+    if has_image:
+        header += f'''
+print("[ColorStudio -> Blender] import de l'image composee...")
+add_image_plane({img_path_for_script!r})
+'''
+
+    header += '''add_camera()
 
 # =============================================================================
-# Ajout des lumieres
+# Ajout des marqueurs de lumieres (chacun avec ses metadata ColorStudio)
 # =============================================================================
-print("[ColorStudio -> Blender] ajout de {len(lights_data)} lumieres...")
 '''
 
     body_lines = []
@@ -181,24 +279,52 @@ print("[ColorStudio -> Blender] ajout de {len(lights_data)} lumieres...")
         c = ld["color"]
         p = ld["position"]
         body_lines.append(
-            f'add_light(\n'
+            f'add_light_marker(\n'
             f'    name="{ld["name"]}",\n'
             f'    color=({c[0]:.4f}, {c[1]:.4f}, {c[2]:.4f}),\n'
-            f'    energy={ld["energy"]:.2f},  # = 1000 W * 2^{ld["exposure_ev"]:.2f} EV\n'
             f'    exposure_ev={ld["exposure_ev"]:.2f},\n'
             f'    position=({p[0]:.4f}, {p[1]:.4f}, {p[2]:.4f}),  # placeholder, a adapter\n'
-            f'    image_path={repr(ld["image_path"])},\n'
+            f'    image_path={ld["image_path"]!r},\n'
             f'    image_idx={ld["image_idx"]},\n'
-            f')'
+            f')\n'
+            f'# decommenter pour avoir aussi une vraie point light Blender :\n'
+            f'# add_real_point_light("{ld["name"]}", ({c[0]:.4f}, {c[1]:.4f}, {c[2]:.4f}), {ld["exposure_ev"]:.2f}, ({p[0]:.4f}, {p[1]:.4f}, {p[2]:.4f}))'
         )
 
     footer = '''
 
+
 # =============================================================================
-print("[ColorStudio -> Blender] termine. Cliquer F12 pour render.")
+print("[ColorStudio -> Blender] termine.")
+print("  Pour voir le rendu compose : Viewport Shading > Material Preview ou Rendered")
+print("  Pour voir les metadata d'un marqueur : selectionner CS_LightX > Properties > Object > Custom Properties")
 '''
 
     return header + "\n".join(body_lines) + footer
+
+
+# -----------------------------------------------------------------------------
+# Rendu de l'image composee (PNG) pour l'embarquer dans l'export Blender
+# -----------------------------------------------------------------------------
+
+def render_scene_to_image(scene, output_path):
+    """
+    rend la scene ColorStudio courante en une image PNG sauvegardee sur disque.
+    Applique les memes post-process / clipping / tone mapping que l'app.
+    """
+    import imageio.v2 as imageio
+    import numpy as np
+    from colorstudio.utils import toneMap
+
+    img = scene.render()
+    # tone mapping si HDR (sinon l'image serait cramee a l'enregistrement uint8)
+    if img.max() > 1.0:
+        img = toneMap(img)
+    img_uint8 = (np.clip(img, 0.0, 1.0) * 255).astype(np.uint8)
+
+    os.makedirs(os.path.dirname(os.path.abspath(output_path)) or ".", exist_ok=True)
+    imageio.imwrite(output_path, img_uint8)
+    return output_path
 
 
 # -----------------------------------------------------------------------------
@@ -252,14 +378,12 @@ def find_blender_executable():
 
     elif sys.platform == "darwin":
         candidates.extend(glob.glob("/Applications/Blender.app/Contents/MacOS/Blender"))
-        # versions multiples (Blender 4.x.app, etc.)
         candidates.extend(glob.glob("/Applications/Blender */Blender.app/Contents/MacOS/Blender"))
         candidates.extend(glob.glob(
             os.path.expanduser("~/Applications/Blender.app/Contents/MacOS/Blender")
         ))
 
     else:
-        # Linux : essaie des emplacements connus + flatpak/snap
         for pat in [
             "/usr/bin/blender",
             "/usr/local/bin/blender",
@@ -270,22 +394,8 @@ def find_blender_executable():
             os.path.expanduser("~/Applications/Blender*/blender"),
         ]:
             candidates.extend(glob.glob(pat))
-        # flatpak (utilise `flatpak run org.blender.Blender`)
-        flatpak = shutil.which("flatpak")
-        if flatpak:
-            try:
-                out = subprocess.run(
-                    [flatpak, "info", "org.blender.Blender"],
-                    capture_output=True, text=True, timeout=5
-                )
-                if out.returncode == 0:
-                    # on retourne un "command" qui sera detecte specialement
-                    # (le caller doit savoir comment l'invoquer)
-                    pass  # pas trivial a integrer, on skip pour l'instant
-            except Exception:
-                pass
 
-    # filtre : garde seulement les fichiers executables, trie pour avoir la
+    # filtre : garde seulement les fichiers existants, trie pour avoir la
     # version la plus haute en premier ('Blender 5.0' > 'Blender 4.5' lexico)
     candidates = [c for c in candidates if os.path.isfile(c)]
     candidates.sort(reverse=True)
@@ -304,7 +414,6 @@ def find_blender_executable():
                 try:
                     with winreg.OpenKey(hive, sub) as key:
                         val, _ = winreg.QueryValueEx(key, "")
-                        # le val peut etre `"C:\...\blender.exe" "%1"` -> extraire le chemin
                         if val.startswith('"'):
                             val = val.split('"')[1]
                         if os.path.isfile(val):
@@ -319,28 +428,27 @@ def find_blender_executable():
 
 def export_to_blend(scene, blend_output_path, source_scene_file=None, blender_exe=None, timeout=120):
     """
-    genere directement un fichier .blend en invoquant Blender en mode headless.
-
-    Workflow :
-    1. genere le script Python ColorStudio -> Blender dans un fichier temporaire
-    2. invoque : blender --background --python script.py --save out.blend
-    3. retourne le chemin du .blend
+    genere directement un fichier .blend via Blender headless. Inclut :
+    - le rendu de la scene composee en PNG a cote du .blend
+    - un plan textured affichant ce PNG (= la sortie ColorStudio)
+    - les Empties marqueurs de chaque lumiere avec metadata
 
     Parameters
     ----------
     scene : model.Scene
     blend_output_path : str
-        chemin du .blend a produire
+        chemin du .blend a produire. Une image .png du meme nom est sauvegardee
+        a cote pour etre referencee depuis le .blend.
     source_scene_file : str ou None
-        chemin du fichier source ColorStudio (pour les commentaires)
+        chemin du fichier source ColorStudio (pour les commentaires du script)
     blender_exe : str ou None
-        chemin de l'executable Blender. Si None, auto-detection via find_blender_executable.
+        chemin de l'executable Blender. Si None, auto-detection.
     timeout : int
         timeout en secondes pour l'invocation Blender (defaut 120s).
 
     Returns
     -------
-    str : chemin absolu du .blend produit
+    tuple (str, str) : (chemin du .blend produit, chemin du .png produit a cote)
 
     Raises
     ------
@@ -355,20 +463,36 @@ def export_to_blend(scene, blend_output_path, source_scene_file=None, blender_ex
             "ajouter son executable au PATH, puis reessayer."
         )
 
-    # 1. genere le script .py dans un fichier temporaire
+    # 1. rend la scene en PNG a cote du .blend
+    blend_output_path = os.path.abspath(blend_output_path)
+    blend_dir = os.path.dirname(blend_output_path) or "."
+    png_path = os.path.join(
+        blend_dir,
+        os.path.splitext(os.path.basename(blend_output_path))[0] + "_render.png"
+    )
+    try:
+        render_scene_to_image(scene, png_path)
+    except Exception as e:
+        # pas bloquant : on continue sans image (script .blend sans plan textured)
+        print(f"[warning] rendu PNG echoue, .blend sera sans image : {e}")
+        png_path = None
+
+    # 2. genere le script .py dans un fichier temporaire
     fd, tmp_script = tempfile.mkstemp(suffix=".py", prefix="colorstudio_export_")
     os.close(fd)
     try:
-        export_to_blender(scene, tmp_script, source_scene_file=source_scene_file)
+        export_to_blender(
+            scene, tmp_script,
+            source_scene_file=source_scene_file,
+            image_path=png_path,
+        )
 
-        # 2. invoque Blender en headless avec --save
-        blend_output_path = os.path.abspath(blend_output_path)
-        os.makedirs(os.path.dirname(blend_output_path) or ".", exist_ok=True)
-
-        # script qu'on injecte en plus : sauvegarde du .blend a la fin
-        # NB : --save de Blender ne fonctionne pas avec --python, on doit le faire
-        # dans le script Python via bpy.ops.wm.save_as_mainfile
-        save_snippet = f'\n\nimport bpy as _bpy\n_bpy.ops.wm.save_as_mainfile(filepath={blend_output_path!r})\n'
+        # 3. invoque Blender en headless avec save_as_mainfile a la fin
+        os.makedirs(blend_dir, exist_ok=True)
+        save_snippet = (
+            f'\n\nimport bpy as _bpy\n'
+            f'_bpy.ops.wm.save_as_mainfile(filepath={blend_output_path!r})\n'
+        )
         with open(tmp_script, "a", encoding="utf-8") as f:
             f.write(save_snippet)
 
@@ -381,10 +505,10 @@ def export_to_blend(scene, blend_output_path, source_scene_file=None, blender_ex
         )
 
         if result.returncode != 0:
-            stderr_tail = (result.stderr or "").splitlines()[-10:]
+            stderr_tail = (result.stderr or "").splitlines()[-15:]
             raise RuntimeError(
                 f"Blender a echoue (exit={result.returncode}).\n"
-                f"stderr (10 dernieres lignes) :\n" + "\n".join(stderr_tail)
+                f"stderr (15 dernieres lignes) :\n" + "\n".join(stderr_tail)
             )
 
         if not os.path.isfile(blend_output_path):
@@ -393,9 +517,8 @@ def export_to_blend(scene, blend_output_path, source_scene_file=None, blender_ex
                 f"Attendu : {blend_output_path}"
             )
 
-        return blend_output_path
+        return blend_output_path, png_path
     finally:
-        # nettoyage du script temporaire
         if os.path.exists(tmp_script):
             try:
                 os.unlink(tmp_script)

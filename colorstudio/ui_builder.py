@@ -483,17 +483,26 @@ class CSMainWindow(QMainWindow):
                 self.statusBar().showMessage("Export Blender en cours (peut prendre 10-30s)...", 0)
                 # on force le refresh visuel du status bar avant l'invocation bloquante
                 QApplication.processEvents()
-                out = export_to_blend(
+                blend_out, png_out = export_to_blend(
                     self._scene, filename,
                     source_scene_file=source_file,
                     blender_exe=blender_exe,
                 )
-                self.statusBar().showMessage(f"Export Blender (.blend) : {out}", 5000)
-                logger.info("scene exportee vers .blend : %s", out)
+                self.statusBar().showMessage(f"Export Blender (.blend) : {blend_out}", 5000)
+                logger.info("scene exportee vers .blend : %s + %s", blend_out, png_out)
+                png_line = ""
+                if png_out and os.path.exists(png_out):
+                    png_line = f"Image composee a cote :\n{png_out}\n\n"
                 QMessageBox.information(
                     self, "Export Blender termine",
-                    f"Fichier Blender genere :\n{out}\n\n"
-                    f"Double-cliquer pour l'ouvrir dans Blender.\n\n"
+                    f"Fichier Blender genere :\n{blend_out}\n\n"
+                    f"{png_line}"
+                    "Le .blend contient :\n"
+                    "  - un plan textured affichant l'image composee ColorStudio\n"
+                    "  - un Empty (CS_LightX) par lumiere, avec ses proprietes "
+                    "ColorStudio en custom properties\n\n"
+                    "Note : ColorStudio fait du compositing 2D, pas du rendu 3D. "
+                    "Les Empties sont des marqueurs et non de vraies lights 3D.\n\n"
                     f"Blender utilise : {blender_exe}"
                 )
             else:

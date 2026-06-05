@@ -97,10 +97,14 @@ def main(argv=None):
     app.setApplicationVersion(APP_VERSION)
     app.setOrganizationName(APP_ORG)
 
-    # icone de l'application
-    icon_path = _get_asset_path('colorstudio/icons/app.ico')
-    if os.path.exists(icon_path):
-        app.setWindowIcon(QIcon(icon_path))
+    # icone de l'application : .ico (Windows) ou .png (Linux/macOS)
+    # Qt comprend les deux formats, mais on prefere le format natif de l'OS pour
+    # une meilleure integration (resolution et metadata correctes).
+    for icon_name in ('app.ico', 'app.png'):
+        icon_path = _get_asset_path(f'colorstudio/icons/{icon_name}')
+        if os.path.exists(icon_path):
+            app.setWindowIcon(QIcon(icon_path))
+            break
 
     # splash screen pendant le chargement de la scene
     splash_path = _get_asset_path('splashScreen.jpg')

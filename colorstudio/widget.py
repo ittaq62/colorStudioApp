@@ -334,19 +334,14 @@ class CSQLoadSaveLayout(QHBoxLayout):
         # main window pour declencher _action_open / _action_save_render
 
 # ----------------------------------------------------------------------------------
-class CSQLightControlLayout(QHBoxLayout):
+class CSQLightControlLayout(QVBoxLayout):
+    """
+    Card de controle d'une lumiere, organisee en 2 lignes :
+      Ligne 1 : [EV-] [+X.XX EV] [EV+] | [palette] [color preview]
+      Ligne 2 : "Position dans la trajectoire"  [================ slider ================]  42 / 99
+    """
 
-    def __init__(self, controller, uiDEIMG=None, uiIEIMG=None, uiCCIMG=None, stepE=0.2, maxE=5, lightPosIdx=50):
-        """
-        widget that controls exposure, color and position of light
-        @params:
-            controller  - Required   (CSLightController)
-            uiDEIMG     - Optional  : icon for Decrease Exposure (Qicon)
-            uiIEIMG     - Optional  : icon for Increase Exposure (Qicon)
-            uiCCIMG     - Optional  : icon for color control     (Qicon)
-            stepE       - Optional  : exposure step [=0.2]       (Float)
-            maxE        - Optional  : max exposure  [=5.O]       (Float)
-        """
+    def __init__(self, controller, uiDEIMG=None, uiIEIMG=None, uiCCIMG=None, stepE=0.2, maxE=5, lightPosIdx=50, maxPos=99):
         super().__init__()
         # controller
         self._controller = controller
@@ -376,27 +371,7 @@ class CSQLightControlLayout(QHBoxLayout):
             "Exposition courante en EV (double-clic pour reset a 0)"
         )
 
-        # slider de position de la lumiere
-        self._sliderPosition = QSlider(QtCore.Qt.Orientation.Horizontal)
-        self._sliderPosition.setRange(0, 99)
-        self._sliderPosition.setValue(lightPosIdx)
-        self._sliderPosition.setObjectName("posSlider")
-        self._sliderPosition.setToolTip(
-            "Position de la lumiere dans la trajectoire pre-rendue (0-99)"
-        )
-
-        # label de position
-        self._posLabel = QLabel(f"{lightPosIdx}")
-        self._posLabel.setMinimumWidth(28)
-        self._posLabel.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-        self._posLabel.setObjectName("posLabel")
-
-        # control of Exposure
-        self._step = stepE
-        self._max = maxE
-        self._exposure = 0.0
-
-        # preview de la couleur de la lumiere (carre plus gros, click ouvre la palette)
+        # preview de la couleur de la lumiere
         self._colorPreview = QFrame()
         self._colorPreview.setFixedSize(28, 28)
         self._colorPreview.setStyleSheet(
@@ -404,19 +379,54 @@ class CSQLightControlLayout(QHBoxLayout):
         )
         self._colorPreview.setToolTip("Couleur courante de la lumiere (cliquer la palette pour changer)")
 
-        # assemblage : [ - | +0.00 EV | + | palette | preview ]   [ slider ]  [pos 42]
-        left_group = QHBoxLayout()
-        left_group.addWidget(self._deButton)
-        left_group.addWidget(self._exposureValueLabel)
-        left_group.addWidget(self._ieButton)
-        left_group.addWidget(self._ccButton)
-        left_group.addWidget(self._colorPreview)
-        left_group.setSpacing(6)
+        # control of Exposure
+        self._step = stepE
+        self._max = maxE
+        self._maxPos = maxPos
+        self._exposure = 0.0
 
-        self.addLayout(left_group)
-        self.addWidget(self._sliderPosition)
-        self.addWidget(self._posLabel)
-        self.setStretch(1, 1)  # le slider prend tout l'espace dispo
+        # ----- Ligne 1 : controles d'exposition + couleur -----
+        topRow = QHBoxLayout()
+        topRow.addWidget(self._deButton)
+        topRow.addWidget(self._exposureValueLabel)
+        topRow.addWidget(self._ieButton)
+        topRow.addSpacing(10)
+        topRow.addWidget(self._ccButton)
+        topRow.addWidget(self._colorPreview)
+        topRow.addStretch(1)
+        topRow.setSpacing(6)
+        self.addLayout(topRow)
+
+        # ----- Ligne 2 : slider de position avec label + valeur en clair -----
+        posLabelLeft = QLabel("Position")
+        posLabelLeft.setMinimumWidth(60)
+        posLabelLeft.setToolTip(
+            "Position de la lumiere le long de la trajectoire pre-rendue.\n"
+            "Chaque valeur correspond a une image differente du set."
+        )
+
+        self._sliderPosition = QSlider(QtCore.Qt.Orientation.Horizontal)
+        self._sliderPosition.setRange(0, maxPos)
+        self._sliderPosition.setValue(lightPosIdx)
+        self._sliderPosition.setObjectName("posSlider")
+        self._sliderPosition.setMinimumHeight(20)
+        self._sliderPosition.setToolTip(
+            f"Deplacer la lumiere sur sa trajectoire pre-rendue (0 a {maxPos})"
+        )
+
+        # label de position : "42 / 99"
+        self._posLabel = QLabel(f"{lightPosIdx} / {maxPos}")
+        self._posLabel.setMinimumWidth(55)
+        self._posLabel.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
+        self._posLabel.setObjectName("posLabel")
+        self._posLabel.setToolTip("Index courant / nombre total d'images dans la trajectoire")
+
+        posRow = QHBoxLayout()
+        posRow.addWidget(posLabelLeft)
+        posRow.addWidget(self._sliderPosition, 1)
+        posRow.addWidget(self._posLabel)
+        posRow.setSpacing(8)
+        self.addLayout(posRow)
 
         # callbacks click
         self._ieButton.clicked.connect(self.incExposure)
@@ -468,7 +478,7 @@ class CSQLightControlLayout(QHBoxLayout):
         self._colorPreview.setStyleSheet(f"background-color: rgb({r_int}, {g_int}, {b_int}); border: 1px solid #aaa; border-radius: 3px;")
 
     def sliderValueChanged(self, value):
-        self._posLabel.setText(str(value))
+        self._posLabel.setText(f"{value} / {self._maxPos}")
         self._controller._event(self, [0, value])
 
 # ----------------------------------------------------------------------------------

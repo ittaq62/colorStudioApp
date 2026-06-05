@@ -9,16 +9,17 @@ Color Studio - Rémi Cozot 2019
 # import(s)
 # ----------------------------------------------------------------------------------
 
-from PyQt6.QtWidgets import QFrame
 import sys
-import moderngl
-
 import math
+import moderngl
 import numpy as np
 import skimage
 
-from PyQt6.QtWidgets import QApplication, QWidget, QLabel, QPushButton, QVBoxLayout, QHBoxLayout, QSlider, QCheckBox
-from PyQt6.QtGui import QPixmap, QImage, QSurfaceFormat
+from PyQt6.QtWidgets import (
+    QApplication, QWidget, QLabel, QPushButton, QVBoxLayout, QHBoxLayout,
+    QSlider, QCheckBox, QFrame, QColorDialog,
+)
+from PyQt6.QtGui import QPixmap, QImage, QSurfaceFormat, QColor
 #from PyQt6.QtGui import QIcon  # plus utilise dans ce fichier
 from PyQt6 import QtCore
 from PyQt6.QtOpenGLWidgets import QOpenGLWidget
@@ -352,23 +353,17 @@ class CSQLightControlLayout(QHBoxLayout):
         self._controller._event(self, [-1, self._exposure])
 
     def setColor(self):
-        from PyQt6.QtWidgets import QColorDialog
-        from PyQt6.QtGui import QColor
-        import numpy as np
-        
+        # ouvre le picker natif Qt avec la couleur actuelle pre-selectionnee
         current_rgb = self._controller._scene._npColorRGB
-        
+
         color = QColorDialog.getColor(
             QColor.fromRgbF(current_rgb[0], current_rgb[1], current_rgb[2]),
             self.parentWidget() if self.parentWidget() else None,
             "Select Light Color"
         )
-        
+
         if color.isValid():
-            r = color.redF()
-            g = color.greenF()
-            b = color.blueF()
-            new_color = np.array([r, g, b])
+            new_color = np.array([color.redF(), color.greenF(), color.blueF()])
             self.updatePreview(new_color)
             self._controller._event(self, [2, new_color])
 

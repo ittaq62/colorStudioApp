@@ -641,7 +641,10 @@ class CSUIAllBuilder(CSUIBuilder):
         )
         bottom_vlayout.addWidget(cloudTitle)
 
-        cloudSubtitle = QLabel("Nuage de points 3D : chaque point = un pixel, position = sa couleur RGB")
+        cloudSubtitle = QLabel(
+            "Chaque point = un pixel, position = sa couleur RGB. "
+            "Drag = pan, molette = zoom, double-clic = reset."
+        )
         cloudSubtitle.setObjectName("sectionSubtitle")
         cloudSubtitle.setWordWrap(True)
         bottom_vlayout.addWidget(cloudSubtitle)

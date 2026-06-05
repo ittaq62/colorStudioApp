@@ -404,37 +404,101 @@ class CSMainWindow(QMainWindow):
             )
 
     def _action_export_blender(self):
-        """exporte la scene courante en script Python Blender"""
+        """
+        exporte la scene courante vers Blender. Deux formats au choix dans la boite
+        de dialogue :
+        - .blend : invoque Blender en headless pour produire un .blend direct
+                   (necessite Blender installe et sur le PATH)
+        - .py    : genere juste le script Python (toujours possible, ne necessite
+                   pas Blender)
+        Le format est determine par l'extension du nom de fichier.
+        """
         if self._scene is None or not self._scene._lights:
             QMessageBox.information(
                 self, "Export Blender",
                 "Aucune scene chargee ou scene vide : rien a exporter."
             )
             return
-        filename, _ = QFileDialog.getSaveFileName(
+
+        from colorstudio.exporters import (
+            export_to_blender, export_to_blend, find_blender_executable
+        )
+        blender_exe = find_blender_executable()
+
+        # construit le filtre : si Blender est detecte, .blend en defaut, sinon .py
+        if blender_exe:
+            default_name = "scene.blend"
+            file_filter = (
+                "Fichier Blender (*.blend);;"
+                "Script Python Blender (*.py)"
+            )
+            default_filter = "Fichier Blender (*.blend)"
+        else:
+            default_name = "scene_blender.py"
+            file_filter = (
+                "Script Python Blender (*.py);;"
+                "Fichier Blender (*.blend) - necessite Blender installe"
+            )
+            default_filter = "Script Python Blender (*.py)"
+
+        filename, selected_filter = QFileDialog.getSaveFileName(
             self,
-            "Exporter la scene vers Blender (script Python)",
-            "scene_blender.py",
-            "Python files (*.py)",
+            "Exporter la scene vers Blender",
+            default_name,
+            file_filter,
+            default_filter,
         )
         if not filename:
             return
+
+        source_file = getattr(self._scene, '_sourceFile', None)
+        ext = os.path.splitext(filename)[1].lower()
+
         try:
-            from colorstudio.exporters import export_to_blender
-            source_file = getattr(self._scene, '_sourceFile', None)
-            export_to_blender(self._scene, filename, source_scene_file=source_file)
-            self.statusBar().showMessage(f"Export Blender : {filename}", 5000)
-            logger.info("scene exportee vers Blender dans %s", filename)
-            # info utilisateur : comment lancer le script
-            QMessageBox.information(
-                self, "Export Blender termine",
-                f"Script genere : {filename}\n\n"
-                "Pour l'utiliser dans Blender :\n"
-                "  - en CLI :   blender --python " + os.path.basename(filename) + "\n"
-                "  - dans Blender : ouvrir l'editeur Scripting, charger ce fichier, Run.\n\n"
-                "ATTENTION : le script efface la scene courante. A executer sur un .blend vide."
-            )
+            if ext == ".blend" or (ext == "" and "Blender" in selected_filter and ".blend" in selected_filter):
+                # mode .blend direct via Blender headless
+                if not filename.endswith(".blend"):
+                    filename += ".blend"
+                if blender_exe is None:
+                    raise FileNotFoundError(
+                        "Blender n'a pas ete trouve sur ce systeme.\n"
+                        "Installer Blender depuis https://www.blender.org/download/\n"
+                        "et l'ajouter au PATH, ou choisir le format .py a la place."
+                    )
+                self.statusBar().showMessage("Export Blender en cours (peut prendre 10-30s)...", 0)
+                # on force le refresh visuel du status bar avant l'invocation bloquante
+                QApplication.processEvents()
+                out = export_to_blend(
+                    self._scene, filename,
+                    source_scene_file=source_file,
+                    blender_exe=blender_exe,
+                )
+                self.statusBar().showMessage(f"Export Blender (.blend) : {out}", 5000)
+                logger.info("scene exportee vers .blend : %s", out)
+                QMessageBox.information(
+                    self, "Export Blender termine",
+                    f"Fichier Blender genere :\n{out}\n\n"
+                    f"Double-cliquer pour l'ouvrir dans Blender.\n\n"
+                    f"Blender utilise : {blender_exe}"
+                )
+            else:
+                # mode .py (script Python)
+                if not filename.endswith(".py"):
+                    filename += ".py"
+                export_to_blender(self._scene, filename, source_scene_file=source_file)
+                self.statusBar().showMessage(f"Export Blender (.py) : {filename}", 5000)
+                logger.info("scene exportee vers .py Blender : %s", filename)
+                base = os.path.basename(filename)
+                QMessageBox.information(
+                    self, "Export Blender termine",
+                    f"Script genere :\n{filename}\n\n"
+                    "Pour l'utiliser dans Blender :\n"
+                    f"  - en CLI :   blender --python {base}\n"
+                    "  - dans Blender : ouvrir l'editeur Scripting, charger ce fichier, Run.\n\n"
+                    "ATTENTION : le script efface la scene courante. A executer sur un .blend vide."
+                )
         except Exception as exc:
+            self.statusBar().clearMessage()
             logger.exception("echec de l'export Blender")
             QMessageBox.critical(
                 self, "Erreur",
@@ -643,11 +707,16 @@ class CSUIAllBuilder(CSUIBuilder):
 
         # Lights Cards (une card par lumiere de la scene)
         for light in lightsScene._lights:
-            lightControl_layout = colorStudioWidget.CSQLightControlLayout(None, lightPosIdx=light._imageIdx)
+            # _nbImage = nombre total d'images pre-rendues = etendue du slider position
+            n_images = getattr(light._ImagesArray, '_nbImage', 100)
+            max_pos = max(0, n_images - 1)
+            lightControl_layout = colorStudioWidget.CSQLightControlLayout(
+                None, lightPosIdx=light._imageIdx, maxPos=max_pos
+            )
             # synchronise l'etat affiche avec celui du modele
             lightControl_layout._exposure = light._exposure
             lightControl_layout._updateExposureLabel()
-            lightControl_layout._posLabel.setText(str(light._imageIdx))
+            lightControl_layout._posLabel.setText(f"{light._imageIdx} / {max_pos}")
             lightControl_layout.updatePreview(light._npColorRGB)
 
             lightController = colorStudioController.CSLightController(lightsScene, light, [self._renderWidget, self._color3DWidget])
@@ -658,7 +727,7 @@ class CSUIAllBuilder(CSUIBuilder):
                 colorStudioWidget.CardWidget(
                     lightControl_layout,
                     f"Lumiere : {light._name}",
-                    subtitle="Exposition (EV), couleur, position sur la trajectoire",
+                    subtitle="Exposition (EV), couleur, position sur la trajectoire pre-rendue",
                 )
             )
 

@@ -9,6 +9,10 @@ ou colle dans l'editeur Python de Blender.
 
 import math
 import os
+import shutil
+import subprocess
+import sys
+import tempfile
 from datetime import datetime
 
 
@@ -194,3 +198,130 @@ print("[ColorStudio -> Blender] termine. Cliquer F12 pour render.")
 '''
 
     return header + "\n".join(body_lines) + footer
+
+
+# -----------------------------------------------------------------------------
+# Export direct au format .blend (necessite Blender installe + sur le PATH)
+# -----------------------------------------------------------------------------
+
+def find_blender_executable():
+    """
+    cherche l'executable Blender sur le systeme.
+    retourne le chemin trouve ou None.
+    """
+    # 1. dans le PATH
+    p = shutil.which("blender")
+    if p:
+        return p
+
+    # 2. emplacements connus sur Windows
+    if sys.platform.startswith("win"):
+        candidates = [
+            r"C:\Program Files\Blender Foundation\Blender 4.5\blender.exe",
+            r"C:\Program Files\Blender Foundation\Blender 4.4\blender.exe",
+            r"C:\Program Files\Blender Foundation\Blender 4.3\blender.exe",
+            r"C:\Program Files\Blender Foundation\Blender 4.2\blender.exe",
+            r"C:\Program Files\Blender Foundation\Blender 4.1\blender.exe",
+            r"C:\Program Files\Blender Foundation\Blender 4.0\blender.exe",
+            r"C:\Program Files\Blender Foundation\Blender 3.6\blender.exe",
+        ]
+        for c in candidates:
+            if os.path.isfile(c):
+                return c
+
+    # 3. emplacements connus sur macOS
+    if sys.platform == "darwin":
+        candidates = [
+            "/Applications/Blender.app/Contents/MacOS/Blender",
+        ]
+        for c in candidates:
+            if os.path.isfile(c):
+                return c
+
+    return None
+
+
+def export_to_blend(scene, blend_output_path, source_scene_file=None, blender_exe=None, timeout=120):
+    """
+    genere directement un fichier .blend en invoquant Blender en mode headless.
+
+    Workflow :
+    1. genere le script Python ColorStudio -> Blender dans un fichier temporaire
+    2. invoque : blender --background --python script.py --save out.blend
+    3. retourne le chemin du .blend
+
+    Parameters
+    ----------
+    scene : model.Scene
+    blend_output_path : str
+        chemin du .blend a produire
+    source_scene_file : str ou None
+        chemin du fichier source ColorStudio (pour les commentaires)
+    blender_exe : str ou None
+        chemin de l'executable Blender. Si None, auto-detection via find_blender_executable.
+    timeout : int
+        timeout en secondes pour l'invocation Blender (defaut 120s).
+
+    Returns
+    -------
+    str : chemin absolu du .blend produit
+
+    Raises
+    ------
+    FileNotFoundError : Blender introuvable
+    RuntimeError      : echec de l'invocation Blender
+    """
+    if blender_exe is None:
+        blender_exe = find_blender_executable()
+    if blender_exe is None:
+        raise FileNotFoundError(
+            "Blender n'a pas ete trouve sur ce systeme. Installer Blender ou "
+            "ajouter son executable au PATH, puis reessayer."
+        )
+
+    # 1. genere le script .py dans un fichier temporaire
+    fd, tmp_script = tempfile.mkstemp(suffix=".py", prefix="colorstudio_export_")
+    os.close(fd)
+    try:
+        export_to_blender(scene, tmp_script, source_scene_file=source_scene_file)
+
+        # 2. invoque Blender en headless avec --save
+        blend_output_path = os.path.abspath(blend_output_path)
+        os.makedirs(os.path.dirname(blend_output_path) or ".", exist_ok=True)
+
+        # script qu'on injecte en plus : sauvegarde du .blend a la fin
+        # NB : --save de Blender ne fonctionne pas avec --python, on doit le faire
+        # dans le script Python via bpy.ops.wm.save_as_mainfile
+        save_snippet = f'\n\nimport bpy as _bpy\n_bpy.ops.wm.save_as_mainfile(filepath={blend_output_path!r})\n'
+        with open(tmp_script, "a", encoding="utf-8") as f:
+            f.write(save_snippet)
+
+        cmd = [blender_exe, "--background", "--python", tmp_script]
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+        )
+
+        if result.returncode != 0:
+            stderr_tail = (result.stderr or "").splitlines()[-10:]
+            raise RuntimeError(
+                f"Blender a echoue (exit={result.returncode}).\n"
+                f"stderr (10 dernieres lignes) :\n" + "\n".join(stderr_tail)
+            )
+
+        if not os.path.isfile(blend_output_path):
+            raise RuntimeError(
+                "Blender a tourne sans erreur mais le .blend attendu n'a pas ete cree.\n"
+                f"Attendu : {blend_output_path}"
+            )
+
+        return blend_output_path
+    finally:
+        # nettoyage du script temporaire
+        if os.path.exists(tmp_script):
+            try:
+                os.unlink(tmp_script)
+            except OSError:
+                pass

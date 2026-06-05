@@ -16,6 +16,7 @@ dist/colorstudio.exe en mode --onefile).
 """
 
 from pathlib import Path
+from PyInstaller.utils.hooks import copy_metadata
 
 # resolution du repo root via le cwd (PyInstaller cd dans le repo avant de lire la spec)
 project_root = Path(SPECPATH)
@@ -36,6 +37,16 @@ datas = [
     # dossier images pour la scene par defaut
     (str(project_root / 'images'), 'images'),
 ]
+
+# ------- metadata des packages qui en ont besoin a runtime -------
+# imageio lit sa propre version via importlib.metadata.version("imageio") au demarrage,
+# PackageNotFoundError sinon. Idem prudemment pour scikit-image / numpy.
+for pkg in ('imageio', 'scikit-image', 'numpy', 'Pillow'):
+    try:
+        datas += copy_metadata(pkg)
+    except Exception:
+        # le package n'est peut-etre pas installe sous ce nom canonique, on ignore
+        pass
 
 # ------- hidden imports -------
 # PyInstaller ne detecte pas toujours moderngl + ses backends. On les force.

@@ -1,0 +1,74 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "colorstudio"
+version = "1.0.0"
+description = "Outil de compositing par sources lumineuses : melange d'images pre-rendues, mode HDR, post-process (auto-exposure, saturation)."
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "Educational" }
+keywords = ["compositing", "lighting", "hdr", "image", "rendering", "pyqt6"]
+authors = [
+    { name = "Blaszyk Constant" },
+    { name = "Douilly Quentin" },
+    { name = "Deldalle Corentin" },
+]
+maintainers = [
+    { name = "Blaszyk Constant" },
+    { name = "Douilly Quentin" },
+    { name = "Deldalle Corentin" },
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: X11 Applications :: Qt",
+    "Environment :: Win32 (MS Windows)",
+    "Intended Audience :: End Users/Desktop",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Multimedia :: Graphics",
+    "Topic :: Multimedia :: Graphics :: Editors",
+]
+dependencies = [
+    "PyQt6>=6.6",
+    "numpy>=1.26",
+    "scikit-image>=0.22",
+    "imageio>=2.34",
+    "moderngl>=5.10",
+    "Pillow>=10.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "PyInstaller>=6.0",
+    "pytest>=8.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/ittaq62/colorStudioApp"
+Repository = "https://github.com/ittaq62/colorStudioApp"
+Issues = "https://github.com/ittaq62/colorStudioApp/issues"
+
+[project.scripts]
+colorstudio = "colorstudio.app:main"
+
+[project.gui-scripts]
+colorstudio-gui = "colorstudio.app:main"
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+include = ["colorstudio*"]
+exclude = ["tests*", "build*", "dist*"]
+
+[tool.setuptools.package-data]
+colorstudio = [
+    "icons/*.svg",
+    "icons/*.ico",
+    "styles.qss",
+    "assets/*",
+]

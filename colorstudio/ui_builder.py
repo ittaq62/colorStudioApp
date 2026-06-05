@@ -278,10 +278,13 @@ class CSMainWindow(QMainWindow):
             sb.addPermanentWidget(w)
 
     def update_status_bar(self, filename=None, hdr=False, n_lights=0, render_ms=None):
-        """met a jour les infos affichees en bas. appelable a tout moment."""
+        """met a jour les infos affichees en bas + le titre de la fenetre."""
         if filename:
-            self._sb_file.setText(f"Fichier : {os.path.basename(filename)}")
+            basename = os.path.basename(filename)
+            self._sb_file.setText(f"Fichier : {basename}")
             self._sb_file.setToolTip(f"Chemin complet :\n{filename}")
+            # titre fenetre dynamique : "ColorStudio - xml-hdr-demo.json"
+            self.setWindowTitle(f"{APP_NAME} - {basename}")
         self._sb_mode.setText(f"Mode : {'HDR' if hdr else 'LDR'}")
         plural = "s" if n_lights != 1 else ""
         self._sb_lights.setText(f"Lumiere{plural} : {n_lights}")
@@ -620,17 +623,31 @@ class CSUIAllBuilder(CSUIBuilder):
         right_splitter = QSplitter(Qt.Orientation.Vertical)
         right_splitter.addWidget(self._renderWidget)
         
-        # Bottom Analytics Panel
+        # Bottom Analytics Panel : panneau du nuage 3D avec son label explicatif
         bottom_analytics = QWidget()
         bottom_analytics.setObjectName("bottomAnalytics")
-        bottom_layout = QHBoxLayout(bottom_analytics)
-        bottom_layout.setContentsMargins(10, 10, 10, 10)
-        bottom_layout.setSpacing(10)
-        
-        # Limit height of bottom panel
-        bottom_analytics.setMaximumHeight(250)
-        
-        bottom_layout.addWidget(self._color3DWidget)
+        bottom_vlayout = QVBoxLayout(bottom_analytics)
+        bottom_vlayout.setContentsMargins(10, 6, 10, 10)
+        bottom_vlayout.setSpacing(4)
+        bottom_analytics.setMaximumHeight(280)
+
+        # titre + description du nuage 3D
+        cloudTitle = QLabel("DISTRIBUTION DES COULEURS")
+        cloudTitle.setObjectName("sectionHeader")
+        cloudTitle.setToolTip(
+            "Chaque point represente un pixel de l'image rendue.\n"
+            "Sa position dans l'espace 3D est sa chromaticite RGB.\n"
+            "Permet de visualiser la gamme de couleurs presente dans l'image."
+        )
+        bottom_vlayout.addWidget(cloudTitle)
+
+        cloudSubtitle = QLabel("Nuage de points 3D : chaque point = un pixel, position = sa couleur RGB")
+        cloudSubtitle.setObjectName("sectionSubtitle")
+        cloudSubtitle.setWordWrap(True)
+        bottom_vlayout.addWidget(cloudSubtitle)
+
+        # le widget 3D moderngl
+        bottom_vlayout.addWidget(self._color3DWidget, 1)
         
         right_splitter.addWidget(bottom_analytics)
         

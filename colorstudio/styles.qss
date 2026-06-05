@@ -189,6 +189,11 @@ QSplitter::handle:hover {
     background-color: #0A0A0A;
 }
 
+#bottomAnalytics {
+    background-color: #161616;
+    border-top: 1px solid #333333;
+}
+
 #exposureLabel {
     background-color: #333333;
     border-radius: 4px;

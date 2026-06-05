@@ -403,13 +403,37 @@ le resize (avant la taille etait fixe a 480x480, maintenant elle s'adapte
 au widget). On calcule un ratio de scaling pour convertir les coordonnees
 souris en coordonnees "logiques" de la roue.
 
+## Phase 6.3 quater - Palette de couleur native
+
+Apres avoir utilise la roue chromatique custom pendant quelques jours,
+on s'est rendus compte qu'elle etait pas top : on devait d'abord cliquer
+sur le bouton CC d'une lumiere pour la "selectionner", puis aller cliquer
+sur la roue. Deux clics pour changer une couleur, et pas de feedback sur
+la couleur actuelle.
+
+On a decide de tout remplacer par le `QColorDialog` natif de Qt :
+- un clic sur le bouton palette d'une lumiere ouvre directement le picker
+- le picker affiche la couleur actuelle pre-selectionnee
+- on a tous les modes (RGB, HSV, hex, palette de couleurs predefinies,
+  pipette ecran)
+- on a ajoute un petit carre 20x20px a cote du slider de chaque lumiere
+  qui montre la couleur active en temps reel
+
+Resultat : ~120 lignes de code en moins (`CSDisplayColorWheel` +
+`CSColorWheelController` supprimes), UX bien meilleure, et on ne maintient
+plus de code custom pour un truc que Qt fait deja tres bien.
+
+Le `CSLightController` gere maintenant directement le changement de
+couleur (event type 2 = "change color"), au lieu de deleguer a un
+controller separe.
+
 ## Bilan chiffre
 
-- ~60 commits sur develop, repartis sur ~25 branches de feature
-- 23 tests unitaires (tous verts)
+- ~70 commits sur develop, repartis sur ~30 branches de feature
+- 24 tests unitaires (tous verts)
 - 3 bugs algorithmiques identifies, 2 corriges, 1 documente
 - 5 fichiers de documentation (README + docs/ + CHANGELOG + JOURNAL)
-- 3 evolutions fonctionnelles : mode HDR, format JSON, refonte UI
+- 4 evolutions fonctionnelles : mode HDR, format JSON, refonte UI, palette native
 - 0 dependance ajoutee, 1 dependance retiree (easygui)
 
 ## Ce qu'on ferait differemment

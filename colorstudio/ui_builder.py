@@ -44,9 +44,6 @@ class CSUIBuilder:
         # color3D widget
         'uiColor3DWidget_pos': (1440, 30),
         'uiColor3DWidget_size': (480, 480),
-        # color wheel widget
-        'uiColorWheelWidget_pos': (1440, 540),
-        'uiColorWheelWidget_size': (480, 480),
         # menu/control widget
         'uiControlWidget_pos': (0, 30),
         'uiControlWidget_size': (480, 0),
@@ -59,9 +56,6 @@ class CSUIBuilder:
         # color3D widget
         'uiColor3DWidget_pos': (3000 - 480, 60),
         'uiColor3DWidget_size': (480, 480),
-        # color wheel widget
-        'uiColorWheelWidget_pos': (3000 - 480, 540 + 60),
-        'uiColorWheelWidget_size': (480, 480),
         # menu/control widget
         'uiControlWidget_pos': (0, 60),
         'uiControlWidget_size': (480, 0),

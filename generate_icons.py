@@ -17,4 +17,34 @@ icons = {
 for name, content in icons.items():
     with open(os.path.join(svg_dir, name), 'w', encoding='utf-8') as f:
         f.write(content)
-print("Icons created successfully.")
+print("SVG icons created.")
+
+
+# -----------------------------------------------------------------------------
+# generation de app.ico depuis splashScreen.jpg pour la window icon + .exe
+# -----------------------------------------------------------------------------
+try:
+    from PIL import Image
+except ImportError:
+    print("Pillow non installe : pas de generation de app.ico (skip).")
+    print("Installer avec : py -3.13 -m pip install Pillow")
+else:
+    repo_root = os.path.dirname(os.path.abspath(__file__))
+    splash_path = os.path.join(repo_root, 'splashScreen.jpg')
+    ico_path = os.path.join(svg_dir, 'app.ico')
+
+    if not os.path.exists(splash_path):
+        print(f"splashScreen.jpg introuvable a {splash_path} (skip ico).")
+    else:
+        img = Image.open(splash_path)
+        # crop carre depuis le centre
+        w, h = img.size
+        side = min(w, h)
+        left = (w - side) // 2
+        top = (h - side) // 2
+        img = img.crop((left, top, left + side, top + side))
+
+        # multi-resolution .ico (Windows accepte 16/32/48/64/128/256)
+        sizes = [(16, 16), (32, 32), (48, 48), (64, 64), (128, 128), (256, 256)]
+        img.save(ico_path, format='ICO', sizes=sizes)
+        print(f"app.ico genere ({len(sizes)} resolutions) : {ico_path}")

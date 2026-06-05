@@ -538,8 +538,10 @@ class CSUIAllBuilder(CSUIBuilder):
         title_label.setObjectName("title")
         self.controls_layout.addWidget(title_label)
 
-        # Load / Save Card
+        # Load / Save Card -- les boutons sont branches sur les actions du menu
         loadSaveLayout = colorStudioWidget.CSQLoadSaveLayout(CSUIBuilder.uiLoadIMG, CSUIBuilder.uiSaveIMG)
+        loadSaveLayout.loadButton.clicked.connect(self.mainWindow._action_open)
+        loadSaveLayout.saveButton.clicked.connect(self.mainWindow._action_save_render)
         self.controls_layout.addWidget(colorStudioWidget.CardWidget(loadSaveLayout, "Project"))
 
         # HDR Card

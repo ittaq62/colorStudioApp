@@ -4,7 +4,60 @@ Toutes les modifications notables entre la version d'origine (Remi Cozot, 2019)
 et la reprise dans le cadre de la SAE 6A - Maintenance logicielle (BUT3 INFO
 APP, 2025/2026).
 
-## [2025-04] - Reprise SAE 6A
+## [1.0.0] - 2025-06 - "Vraie application"
+
+### Ajoute
+- **Packaging Python (PEP 621)** : `pyproject.toml` complet avec metadata,
+  dependencies, classifiers, entry_points. L'app est maintenant installable
+  via `pip install -e .` et exposable comme commande `colorstudio` ou
+  `python -m colorstudio`.
+- **Module `colorstudio.app`** : point d'entree unique `main()`, separation
+  propre de la logique de demarrage (init Qt, splash, load scene, build UI).
+- **`colorstudio/__main__.py`** pour permettre `python -m colorstudio`.
+- **Menu bar complete** dans la fenetre principale :
+  - Fichier : Ouvrir (Ctrl+O), Recemment ouverts (sous-menu), Sauvegarder
+    le rendu (Ctrl+S), Exporter la scene JSON (Ctrl+Shift+S), Quitter
+  - Affichage : Basculer HDR (Ctrl+H)
+  - Aide : Documentation (F1), Voir sur GitHub, A propos
+- **Status bar** en bas avec 4 indicateurs permanents :
+  fichier charge, mode (LDR/HDR), nombre de lumieres, temps de rendu en ms.
+- **About dialog** (Aide > A propos) avec version, auteurs, credits Cozot
+  2019, lien GitHub, license.
+- **Splash screen** au demarrage utilisant `splashScreen.jpg`, avec message
+  de chargement.
+- **Icone de l'application** `colorstudio/icons/app.ico` multi-resolution
+  (16/32/48/64/128/256) genere depuis `splashScreen.jpg` via Pillow.
+  Window icon + taskbar Windows + icone du .exe.
+- **QSettings persistance** : geometrie/etat de la fenetre, dernier
+  fichier ouvert (re-charge automatique au demarrage suivant), liste des
+  5 fichiers recemment ouverts.
+- **Error handling propre** : `QMessageBox.critical` au lieu de stack
+  trace quand un fichier de scene est introuvable ou corrompu.
+- **Logging propre** : module `logging` standard avec format horodate, plus
+  de `print` non desires en mode app.
+- **Rechargement de scene a chaud** : Fichier > Ouvrir reconstruit l'UI
+  sur la nouvelle scene sans relancer l'app.
+- **PyInstaller bundle** : `colorstudio.spec` + `build_exe.py` pour
+  generer un `.exe` Windows standalone. Le bundle inclut tous les assets
+  (icones, QSS, splash, scenes par defaut, images). Lancement par
+  double-clic, sans Python installe sur la machine cible.
+- `requirements-dev.txt` pour les deps de developpement (PyInstaller,
+  pytest).
+- Dependance `Pillow>=10.0` ajoutee pour la generation .ico.
+
+### Modifie
+- `generate_icons.py` genere maintenant aussi `app.ico` multi-resolution
+  depuis `splashScreen.jpg` (en plus des SVG existants).
+- `CSUIBuilder.uiLoadIcon` utilise un chemin relatif au package pour les
+  SVG (au lieu de `./colorstudio/icons/` qui depend du cwd).
+- `CSMainWindow.apply_style` charge `styles.qss` depuis le package
+  (idem, plus de dependance au cwd).
+- `CSUIAllBuilder` separe en plusieurs methodes (`_buildCentralContent`,
+  `_initialRender`, `_rebuild_with_scene`) pour permettre le rechargement
+  de scene a chaud.
+- `main.py` racine devient un thin wrapper sur `colorstudio.app:main`.
+
+## [0.3.0] - 2025-05 - Palette de couleur native
 
 ### Ajoute (phase 3 : palette de couleur native)
 - Remplacement de la roue chromatique custom (`CSDisplayColorWheel`) par un

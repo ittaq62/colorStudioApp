@@ -13,11 +13,28 @@ Color Studio - Rémi Cozot 2019
 from colorstudio.utils import loadImage, printProgressBar, image2Ymean
 
 import math
+import os
 import numpy as np
 import skimage
 
 import xml.dom.minidom as miniXml
 import json
+
+
+def _resolveImagePath(rawPath, sceneFile):
+    """
+    resoud un chemin d'image relatif par rapport au dossier du fichier de
+    scene (au lieu du cwd, qui depend de comment l'utilisateur a lance l'app).
+
+    - si rawPath est un chemin absolu, on le retourne tel quel
+    - si rawPath est relatif, on le joint au dossier de sceneFile
+    """
+    if not rawPath:
+        return rawPath
+    if os.path.isabs(rawPath):
+        return rawPath
+    sceneDir = os.path.dirname(os.path.abspath(sceneFile))
+    return os.path.normpath(os.path.join(sceneDir, rawPath))
 
 # ----------------------------------------------------------------------------------
 # Class(es)
@@ -291,9 +308,10 @@ class Scene:
             light.setExposure(lData['exposure'])
             light.setColor(np.asarray(lData['color']))
             light.setImageIdx(lData['idxPos'])
-            
+
             inf = lData['inputFile']
-            imagesFile = inf['path']
+            # resoud le chemin relativement au fichier de scene
+            imagesFile = _resolveImagePath(inf['path'], filename)
             images = Images('', imagesFile, inf['ext'], inf['max'], inf['digit'], load=False)
             light.setImagesArray(images)
             
@@ -345,7 +363,8 @@ class Scene:
             nbMin = int(inputNode.attributes['min'].value)
             nbMax = int(inputNode.attributes['max'].value)
             digit = int(inputNode.attributes['digit'].value)
-            imagesFile = inputNode.firstChild.data
+            # resoud le chemin relativement au fichier XML
+            imagesFile = _resolveImagePath(inputNode.firstChild.data, xmlFile)
 
             # index light position : <IDXPOS>36</IDXPOS>
             idxPos = int(xl.getElementsByTagName('IDXPOS')[0].firstChild.data)

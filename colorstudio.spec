@@ -73,8 +73,11 @@ a = Analysis(
     hooksconfig={},
     runtime_hooks=[],
     excludes=[
-        # exclure les modules tests / dev pour reduire la taille
-        'pytest', 'unittest', 'tests',
+        # exclure les modules dev / autres bindings Qt pour reduire la taille.
+        # NB: ne pas exclure `unittest` ni `tests` car numpy/scikit-image
+        # importent ces modules lazyly dans leurs sous-modules `.testing`,
+        # ce qui provoque ImportError au runtime sinon.
+        'pytest',
         'tkinter', 'PyQt5', 'PySide2', 'PySide6',
     ],
     noarchive=False,

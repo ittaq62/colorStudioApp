@@ -38,22 +38,30 @@ def getScreenSize():
 # ----------------------------------------------------------------------------------
 class CardWidget(QWidget):
     """
-    A simple wrapper to give a layout a card-like appearance
+    Wrapper d'un layout dans une "card" du dark theme.
+    Affiche un titre en majuscules + un sous-titre descriptif optionnel.
     """
-    def __init__(self, layout, title=None):
+    def __init__(self, layout, title=None, subtitle=None):
         super().__init__()
         self.setObjectName("card")
         self.setProperty("class", "card")
-        
+
         main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(15, 15, 15, 15)
-        main_layout.setSpacing(10)
+        main_layout.setContentsMargins(15, 12, 15, 12)
+        main_layout.setSpacing(8)
 
         if title:
             title_label = QLabel(title.upper())
             title_label.setObjectName("sectionHeader")
             main_layout.addWidget(title_label)
-        
+
+        if subtitle:
+            # petit texte descriptif sous le titre (gris)
+            subtitle_label = QLabel(subtitle)
+            subtitle_label.setObjectName("sectionSubtitle")
+            subtitle_label.setWordWrap(True)
+            main_layout.addWidget(subtitle_label)
+
         # If the passed layout is already a layout object
         if isinstance(layout, (QHBoxLayout, QVBoxLayout)):
             content_widget = QWidget()
@@ -298,65 +306,92 @@ class CSQLightControlLayout(QHBoxLayout):
         if uiCCIMG is None:
             uiCCIMG = colorStudioUIBuilder.CSUIBuilder.uiCCIMG
 
-        # create button
-        self._deButton = CSQIMGButton(uiDEIMG, (32, 32), name="decrease exposure button")
-        self._ieButton = CSQIMGButton(uiIEIMG, (32, 32), name="increase exposure button")
-        self._ccButton = CSQIMGButton(uiCCIMG, (32, 32), name="light color button")
-        
-        self._exposureValueLabel = QLabel("+0.00")
-        self._exposureValueLabel.setFixedWidth(50)
+        # boutons EV-/EV+ et palette de couleur
+        self._deButton = CSQIMGButton(uiDEIMG, (28, 28), name="decrease exposure button")
+        self._ieButton = CSQIMGButton(uiIEIMG, (28, 28), name="increase exposure button")
+        self._ccButton = CSQIMGButton(uiCCIMG, (28, 28), name="light color button")
+        self._deButton.setToolTip(f"Diminuer l'exposition de {stepE:.1f} EV")
+        self._ieButton.setToolTip(f"Augmenter l'exposition de {stepE:.1f} EV")
+        self._ccButton.setToolTip("Choisir la couleur de la lumiere (palette)")
+
+        # label de la valeur d'exposition (en EV)
+        self._exposureValueLabel = QLabel("+0.00 EV")
+        self._exposureValueLabel.setMinimumWidth(60)
         self._exposureValueLabel.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
         self._exposureValueLabel.setObjectName("exposureLabel")
-        
+        self._exposureValueLabel.setToolTip(
+            "Exposition courante en EV (double-clic pour reset a 0)"
+        )
+
+        # slider de position de la lumiere
         self._sliderPosition = QSlider(QtCore.Qt.Orientation.Horizontal)
+        self._sliderPosition.setRange(0, 99)
         self._sliderPosition.setValue(lightPosIdx)
         self._sliderPosition.setObjectName("posSlider")
-        
+        self._sliderPosition.setToolTip(
+            "Position de la lumiere dans la trajectoire pre-rendue (0-99)"
+        )
+
+        # label de position
+        self._posLabel = QLabel(f"{lightPosIdx}")
+        self._posLabel.setMinimumWidth(28)
+        self._posLabel.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
+        self._posLabel.setObjectName("posLabel")
+
         # control of Exposure
         self._step = stepE
         self._max = maxE
         self._exposure = 0.0
-        
+
+        # preview de la couleur de la lumiere (carre plus gros, click ouvre la palette)
         self._colorPreview = QFrame()
-        self._colorPreview.setFixedSize(20, 20)
-        self._colorPreview.setStyleSheet("background-color: white; border: 1px solid #aaa; border-radius: 3px;")
-        
-        # add button to layout
+        self._colorPreview.setFixedSize(28, 28)
+        self._colorPreview.setStyleSheet(
+            "background-color: white; border: 1px solid #555; border-radius: 4px;"
+        )
+        self._colorPreview.setToolTip("Couleur courante de la lumiere (cliquer la palette pour changer)")
+
+        # assemblage : [ - | +0.00 EV | + | palette | preview ]   [ slider ]  [pos 42]
         left_group = QHBoxLayout()
         left_group.addWidget(self._deButton)
         left_group.addWidget(self._exposureValueLabel)
         left_group.addWidget(self._ieButton)
         left_group.addWidget(self._ccButton)
-        left_group.setSpacing(5)
-        
+        left_group.addWidget(self._colorPreview)
+        left_group.setSpacing(6)
+
         self.addLayout(left_group)
         self.addWidget(self._sliderPosition)
-        self.addWidget(self._colorPreview)
-        self.setStretch(1, 1) # Give slider more space
+        self.addWidget(self._posLabel)
+        self.setStretch(1, 1)  # le slider prend tout l'espace dispo
 
-        # set onClick callback
+        # callbacks click
         self._ieButton.clicked.connect(self.incExposure)
         self._deButton.clicked.connect(self.decExposure)
         self._ccButton.clicked.connect(self.setColor)
-
-        # slider
         self._sliderPosition.valueChanged.connect(self.sliderValueChanged)
+        # double-clic sur le label d'exposition = reset a 0 EV
+        self._exposureValueLabel.mouseDoubleClickEvent = lambda e: self._resetExposure()
+
+    def _updateExposureLabel(self):
+        """formatte +X.XX EV avec unite"""
+        self._exposureValueLabel.setText("{:+.2f} EV".format(self._exposure))
 
     def incExposure(self):
-        self._exposure = self._exposure + self._step
-        if self._exposure > self._max:
-            self._exposure = self._max
-        expoString = "{:+.2f}".format(self._exposure)
-        self._exposureValueLabel.setText(expoString)
+        self._exposure = min(self._exposure + self._step, self._max)
+        self._updateExposureLabel()
         self._controller._event(self, [1, self._exposure])
 
     def decExposure(self):
-        self._exposure = self._exposure - self._step
-        if self._exposure < -self._max:
-            self._exposure = -self._max
-        expoString = "{:+.2f}".format(self._exposure)
-        self._exposureValueLabel.setText(expoString)
+        self._exposure = max(self._exposure - self._step, -self._max)
+        self._updateExposureLabel()
         self._controller._event(self, [-1, self._exposure])
+
+    def _resetExposure(self):
+        """double-clic sur le label : remet a 0 EV"""
+        self._exposure = 0.0
+        self._updateExposureLabel()
+        self._controller._event(self, [1, self._exposure])
 
     def setColor(self):
         # ouvre le picker natif Qt avec la couleur actuelle pre-selectionnee
@@ -380,6 +415,7 @@ class CSQLightControlLayout(QHBoxLayout):
         self._colorPreview.setStyleSheet(f"background-color: rgb({r_int}, {g_int}, {b_int}); border: 1px solid #aaa; border-radius: 3px;")
 
     def sliderValueChanged(self, value):
+        self._posLabel.setText(str(value))
         self._controller._event(self, [0, value])
 
 # ----------------------------------------------------------------------------------
@@ -406,25 +442,37 @@ class CSQAEControlLayout(QHBoxLayout):
         if uiAEoffIMG is None:
             uiAEoffIMG = colorStudioUIBuilder.CSUIBuilder.uiAEoffIMG
 
-        # create automatic exposure (switch) + control button
-        self._aeButton = CSQIMGSwitchButton(uiAEonIMG, uiAEoffIMG, (32, 32), name="switch AE")
+        # bouton on/off de l'auto-exposure
+        self._aeButton = CSQIMGSwitchButton(uiAEonIMG, uiAEoffIMG, (28, 28), name="switch AE")
+        self._aeButton.setToolTip(
+            "Active / desactive l'exposition automatique\n"
+            "Cible : luminance moyenne = 0.5"
+        )
 
+        # boutons EV +/-
         self._ieButton = QPushButton("EV +")
         self._deButton = QPushButton("EV -")
         self._ieButton.setMinimumWidth(60)
         self._deButton.setMinimumWidth(60)
+        self._ieButton.setToolTip(f"Augmenter l'exposition de {stepE:.1f} EV")
+        self._deButton.setToolTip(f"Diminuer l'exposition de {stepE:.1f} EV")
 
-        # exposure value label
-        self._exposureValueLabel = QLabel("+0.00")
-        self._exposureValueLabel.setFixedWidth(50)
+        # label de la valeur d'exposition courante (avec unite + double-clic reset)
+        self._exposureValueLabel = QLabel("+0.00 EV")
+        self._exposureValueLabel.setMinimumWidth(60)
         self._exposureValueLabel.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
         self._exposureValueLabel.setObjectName("exposureLabel")
+        self._exposureValueLabel.setToolTip(
+            "Exposition supplementaire en EV (double-clic pour reset a 0)"
+        )
+        self._exposureValueLabel.mouseDoubleClickEvent = lambda e: self._resetExposure()
 
         # add button to layout
         self.addWidget(self._aeButton)
         self.addWidget(self._deButton)
         self.addWidget(self._exposureValueLabel)
         self.addWidget(self._ieButton)
+        self.addStretch(1)  # boutons a gauche, pas etires
         self.setSpacing(10)
 
         # set onClick callback
@@ -439,8 +487,7 @@ class CSQAEControlLayout(QHBoxLayout):
             exposure = self._exposureON
         else:
             exposure = self._exposureOFF
-        expoString = "{:+.2f}".format(exposure)
-        self._exposureValueLabel.setText(expoString)
+        self._exposureValueLabel.setText("{:+.2f} EV".format(exposure))
 
         # send event to controller
         self._controller._event(self, [0, self._on_off])
@@ -452,8 +499,7 @@ class CSQAEControlLayout(QHBoxLayout):
             if self._exposureON > self._max:
                 self._exposureON = self._max
             exposure = self._exposureON
-            expoString = "{:+.2f}".format(exposure)
-            self._exposureValueLabel.setText(expoString)
+            self._exposureValueLabel.setText("{:+.2f} EV".format(exposure))
             self._controller._event(self, [1, exposure])
         else:
             # autoExposure off
@@ -461,8 +507,7 @@ class CSQAEControlLayout(QHBoxLayout):
             if self._exposureOFF > self._max:
                 self._exposureOFF = self._max
             exposure = self._exposureOFF
-            expoString = "{:+.2f}".format(exposure)
-            self._exposureValueLabel.setText(expoString)
+            self._exposureValueLabel.setText("{:+.2f} EV".format(exposure))
             self._controller._event(self, [1, exposure])
 
     def decExposure(self):
@@ -472,8 +517,7 @@ class CSQAEControlLayout(QHBoxLayout):
             if self._exposureON < -self._max:
                 self._exposureON = -self._max
             exposure = self._exposureON
-            expoString = "{:+.2f}".format(exposure)
-            self._exposureValueLabel.setText(expoString)
+            self._exposureValueLabel.setText("{:+.2f} EV".format(exposure))
             self._controller._event(self, [-1, exposure])
         else:
             # autoExposure off
@@ -481,9 +525,17 @@ class CSQAEControlLayout(QHBoxLayout):
             if self._exposureOFF < -self._max:
                 self._exposureOFF = -self._max
             exposure = self._exposureOFF
-            expoString = "{:+.2f}".format(exposure)
-            self._exposureValueLabel.setText(expoString)
+            self._exposureValueLabel.setText("{:+.2f} EV".format(exposure))
             self._controller._event(self, [-1, exposure])
+
+    def _resetExposure(self):
+        """double-clic sur le label : remet a 0 EV (variante on/off correcte)"""
+        if self._on_off:
+            self._exposureON = 0.0
+        else:
+            self._exposureOFF = 0.0
+        self._exposureValueLabel.setText("+0.00 EV")
+        self._controller._event(self, [1, 0.0])
 
 # ----------------------------------------------------------------------------------
 class CSDisplayWidget(QWidget):
@@ -555,20 +607,61 @@ class CSQSaturationLayout(QVBoxLayout):
         self._gammaSaturation = 0.0
         self._range = range
 
-        # create
-        self._linearSaturationValueLabel = QLabel("linear saturation: " + "{:+.0f}".format(self._linearSaturation))
+        # slider lineaire avec label valeur a droite
+        self._linearSaturationValueLabel = QLabel("0")
+        self._linearSaturationValueLabel.setMinimumWidth(40)
+        self._linearSaturationValueLabel.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
+        self._linearSaturationValueLabel.setObjectName("exposureLabel")
+        self._linearSaturationValueLabel.setToolTip(
+            "Saturation lineaire (-100 = noir et blanc, 0 = original, +100 = sature)\n"
+            "Double-clic pour reset a 0"
+        )
+        self._linearSaturationValueLabel.mouseDoubleClickEvent = \
+            lambda e: self._resetLinear()
+
         self._sliderLinearSaturation = QSlider(QtCore.Qt.Orientation.Horizontal)
+        self._sliderLinearSaturation.setRange(0, 100)
         self._sliderLinearSaturation.setValue(50)
+        self._sliderLinearSaturation.setToolTip(
+            "Saturation lineaire (-100 = N&B, 0 = original, +100 = sature)"
+        )
 
-        self._gammaSaturationValueLabel = QLabel("gamma saturation: " + "{:+.0f}".format(self._gammaSaturation))
+        linearRow = QHBoxLayout()
+        linearLabel = QLabel("Lineaire")
+        linearLabel.setMinimumWidth(60)
+        linearRow.addWidget(linearLabel)
+        linearRow.addWidget(self._sliderLinearSaturation, 1)
+        linearRow.addWidget(self._linearSaturationValueLabel)
+
+        # slider gamma avec label valeur
+        self._gammaSaturationValueLabel = QLabel("0")
+        self._gammaSaturationValueLabel.setMinimumWidth(40)
+        self._gammaSaturationValueLabel.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
+        self._gammaSaturationValueLabel.setObjectName("exposureLabel")
+        self._gammaSaturationValueLabel.setToolTip(
+            "Saturation gamma / vibrance (-100 = N&B doux, 0 = original, +100 = vibrance)\n"
+            "Double-clic pour reset a 0"
+        )
+        self._gammaSaturationValueLabel.mouseDoubleClickEvent = \
+            lambda e: self._resetGamma()
+
         self._sliderGammaSaturation = QSlider(QtCore.Qt.Orientation.Horizontal)
+        self._sliderGammaSaturation.setRange(0, 100)
         self._sliderGammaSaturation.setValue(50)
+        self._sliderGammaSaturation.setToolTip(
+            "Saturation gamma / vibrance (non lineaire, plus douce que la lineaire)"
+        )
 
-        # add  to layout
-        self.addWidget(self._linearSaturationValueLabel)
-        self.addWidget(self._sliderLinearSaturation)
-        self.addWidget(self._gammaSaturationValueLabel)
-        self.addWidget(self._sliderGammaSaturation)
+        gammaRow = QHBoxLayout()
+        gammaLabel = QLabel("Vibrance")
+        gammaLabel.setMinimumWidth(60)
+        gammaRow.addWidget(gammaLabel)
+        gammaRow.addWidget(self._sliderGammaSaturation, 1)
+        gammaRow.addWidget(self._gammaSaturationValueLabel)
+
+        # ajout au layout
+        self.addLayout(linearRow)
+        self.addLayout(gammaRow)
 
         # slider
         self._sliderLinearSaturation.valueChanged.connect(self.sliderLinearSaturationValueChanged)
@@ -576,13 +669,21 @@ class CSQSaturationLayout(QVBoxLayout):
 
     def sliderLinearSaturationValueChanged(self, value):
         self._linearSaturation = (2 * value / 100.0 - 1.0) * self._range
-        self._linearSaturationValueLabel.setText("saturation: " + "{:+.0f}".format(self._linearSaturation))
+        self._linearSaturationValueLabel.setText("{:+.0f}".format(self._linearSaturation))
         self._controller._event(self, [0, self._linearSaturation])
 
     def sliderGammaSaturationValueChanged(self, value):
         self._gammaSaturation = (2 * value / 100.0 - 1.0) * self._range
-        self._gammaSaturationValueLabel.setText("gamma saturation: " + "{:+.0f}".format(self._gammaSaturation))
+        self._gammaSaturationValueLabel.setText("{:+.0f}".format(self._gammaSaturation))
         self._controller._event(self, [1, self._gammaSaturation])
+
+    def _resetLinear(self):
+        """double-clic sur le label : reset slider a 50 (= valeur 0)"""
+        self._sliderLinearSaturation.setValue(50)
+
+    def _resetGamma(self):
+        """double-clic sur le label : reset slider a 50 (= valeur 0)"""
+        self._sliderGammaSaturation.setValue(50)
 
 # ----------------------------------------------------------------------------------
 class CSQHDRControlLayout(QHBoxLayout):
@@ -595,10 +696,17 @@ class CSQHDRControlLayout(QHBoxLayout):
         self._scene = scene
         self._displayWidgets = displayWidgets
 
-        # case a cocher + label
-        self._checkBox = QCheckBox("HDR mode")
+        # case a cocher + label explicatif
+        self._checkBox = QCheckBox("Activer le mode HDR")
         self._checkBox.setChecked(bool(scene._hdr))
+        self._checkBox.setToolTip(
+            "Quand active :\n"
+            "  - les valeurs RGB ne sont plus clippees a 1.0\n"
+            "  - l'affichage applique un tone mapping de Reinhard (x / (1+x))\n"
+            "Raccourci : Ctrl+H"
+        )
         self.addWidget(self._checkBox)
+        self.addStretch(1)
 
         # callback
         self._checkBox.stateChanged.connect(self._onToggle)

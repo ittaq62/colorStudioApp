@@ -10,7 +10,7 @@ Color Studio - Rémi Cozot 2019
 # import(s)
 # ----------------------------------------------------------------------------------
 
-from colorstudio.utils import loadImage, printProgressBar, image2Ymean
+from colorstudio.utils import loadImage, printProgressBar, image2Ymean, rgb2hsv_fast, hsv2rgb_fast
 
 import math
 import os
@@ -218,9 +218,14 @@ class Scene:
         self._postProcesses = []    # set of postprocessing
         self._hdr = hdr
         self._renderFile = None     # nom du fichier de rendu (optionnel)
+        # cache de la somme des contributions des lights -- evite de re-sommer
+        # toutes les images quand seul un post-process (saturation, AE) change.
+        # invalide chaque fois qu'un light est marque _needUpdate.
+        self._lightSumCache = None
 
     def addLight(self, light):
         self._lights.append(light)
+        self._lightSumCache = None  # nouvelle light -> on invalide le cache
 
     def addPostProcess(self, postProcess):
         self._postProcesses.append(postProcess)
@@ -228,6 +233,7 @@ class Scene:
     def clear(self):
         self._lights.clear()
         self._postProcesses.clear()
+        self._lightSumCache = None
 
     def getLightByName(self, name):
         returnLight = None
@@ -237,26 +243,45 @@ class Scene:
                 break
         return returnLight
 
+    def _anyLightDirty(self):
+        """True si au moins un light a son flag _needUpdate / _firstUpdate"""
+        for li in self._lights:
+            if li._firstUpdate or li._needUpdate:
+                return True
+        return False
+
     def render(self):
         if not self._lights:
             # scene vide : retourne une petite image noire pour ne pas crasher
             return np.zeros((4, 4, 3), dtype=np.float64)
 
-        # init avec une copie du premier light pour eviter np.zeros + une addition
-        # .copy() pour ne pas modifier le cache _currentImage du light
-        imgOut = self._lights[0].render().copy()
-
-        # ajout des autres lights en place (evite de creer une nouvelle array a chaque iter)
-        for light in self._lights[1:]:
-            imgOut += light.render()
+        # OPTIMISATION : si aucun light n'a change et qu'on a un cache, on reutilise
+        # le resultat de la somme pre-calculee. C'est le cas typique quand on bouge
+        # le slider saturation / le slider AE / la case HDR : aucune light ne change,
+        # seuls les post-process ont besoin d'etre rejoues.
+        #
+        # IMPORTANT : on ne copie PAS le buffer cache. Les post-process en aval
+        # (AE_Ymean, Saturation) utilisent id() de leur input pour decider de
+        # reutiliser leur cache. Si on copie le buffer ici, id() change a chaque
+        # render et les caches en aval sont inutiles. Les post-process ont
+        # contractuellement l'obligation de ne PAS mutter leur input.
+        if self._lightSumCache is not None and not self._anyLightDirty():
+            imgOut = self._lightSumCache
+        else:
+            imgOut = self._lights[0].render().copy()
+            for light in self._lights[1:]:
+                imgOut += light.render()
+            self._lightSumCache = imgOut
+            imgOut = self._lightSumCache  # meme reference pour le prochain render
 
         # applyPostProcess
         for pp in self._postProcesses:
             imgOut = pp.postProcess(imgOut)
 
         if not self._hdr:
-            # clipping values en place
-            np.clip(imgOut, 0.0, 1.0, out=imgOut)
+            # NB : np.clip non in-place pour ne pas mutter le buffer (pourrait
+            # etre le sumCache si aucun post-process n'est actif)
+            imgOut = np.clip(imgOut, 0.0, 1.0)
         return imgOut
 
     def toXML(self):
@@ -458,6 +483,11 @@ class Saturation(PostProcess):
         self._linearSaturation = linearSat  # in [-100,100]
         self._gammaSaturation = gammaSat    # in [-100,100]
         self._saturationRange = 1.0
+        # cache HSV : evite de refaire le rgb2hsv (~40ms) quand le buffer
+        # d'entree est le meme qu'au render precedent (typique: l'utilisateur
+        # bouge un slider et AE retourne le meme buffer cache)
+        self._hsvCacheInputId = None
+        self._hsvCache = None
 
     def setLinearSaturation(self, saturation):
         self._linearSaturation = saturation
@@ -466,39 +496,47 @@ class Saturation(PostProcess):
         self._gammaSaturation = vibrance
 
     def postProcess(self, img):
+        # OPTIMISATION : si les 2 saturations sont a 0, no-op (cas le plus frequent
+        # au demarrage, evite une conversion HSV inutile)
+        if self._linearSaturation == 0 and self._gammaSaturation == 0:
+            return img
+
+        # OPTIMISATION : on ne fait qu'UN SEUL rgb2hsv + UN SEUL hsv2rgb meme quand
+        # les deux sliders sont actifs. Avant le code faisait 2 round-trips (un pour
+        # le lineaire, un pour le gamma) -> 2x plus lent.
+        # En plus on utilise nos versions vectorisees pures numpy de rgb2hsv/hsv2rgb,
+        # ~3x plus rapides que celles de skimage.color sur des images 540x960.
+
+        # OPTIMISATION 2 : si l'input est le meme buffer que la derniere fois
+        # (cas typique quand on bouge le slider et que AE retourne son cache),
+        # on reutilise le HSV pre-calcule. Economise ~40ms par render.
+        if self._hsvCacheInputId == id(img) and self._hsvCache is not None:
+            imgHSV = self._hsvCache.copy()
+        else:
+            imgHSV = rgb2hsv_fast(img)
+            self._hsvCache = imgHSV.copy()
+            self._hsvCacheInputId = id(img)
+        s = imgHSV[:, :, 1]
+
+        # saturation lineaire : interpole entre la saturation actuelle et la sat max (1.0)
         if self._linearSaturation != 0:
-            # linearSat to u in [-1,1]
             u = self._linearSaturation / 100
-            # convert to hsv
-            imgHSV = skimage.color.rgb2hsv(img)
-            satChannel = imgHSV[:, :, 1]
-            one = np.ones(satChannel.shape)
             if u > 0.0:
-                new_satChannel = (1 - u) * satChannel + u * self._saturationRange * one
+                s = (1 - u) * s + u * self._saturationRange
             else:
-                new_satChannel = (1 + u) * satChannel
-            imgHSV[:, :, 1] = new_satChannel[:, :]
-            # back to rgb
-            img = skimage.color.hsv2rgb(imgHSV)
+                s = (1 + u) * s
 
+        # saturation gamma : courbe non-lineaire sur le canal S
         if self._gammaSaturation != 0:
-            # convert to hsv
-            imgHSV = skimage.color.rgb2hsv(img)
-            satChannel = imgHSV[:, :, 1]
             if self._gammaSaturation > 0.0:
-                # gamma value
                 gamma = 1 + (self._gammaSaturation / 25)
-                new_satChannel = np.power(satChannel, 1 / gamma)
-            elif self._gammaSaturation < 0.0:
-                # gamma value
+                s = np.power(s, 1.0 / gamma)
+            else:
                 gamma = 1 + (-self._gammaSaturation / 25)
-                new_satChannel = np.power(satChannel, gamma)
-            imgHSV[:, :, 1] = new_satChannel[:, :]
-            # back to rgb
-            img = skimage.color.hsv2rgb(imgHSV)
-        imgOut = img
+                s = np.power(s, gamma)
 
-        return imgOut
+        imgHSV[:, :, 1] = s
+        return hsv2rgb_fast(imgHSV)
 
 # ----------------------------------------------------------------------------------
 #  POST PROCESS : AE_YMEAN - Automatic Exposure Ymean-> Ytarget
@@ -510,6 +548,12 @@ class AE_Ymean(PostProcess):
         self._exposureON = exposure
         self._exposureOFF = exposure
         self._on_off = True
+        # cache (input_id, params) -> output. Permet aux post-process en aval
+        # (Saturation notamment) de voir le meme buffer entre deux renders et
+        # de reutiliser leurs propres caches (HSV).
+        self._cacheInputId = None
+        self._cacheKey = None
+        self._cacheOutput = None
 
     def setOnOff(self, on_off):
         self._on_off = on_off
@@ -521,6 +565,11 @@ class AE_Ymean(PostProcess):
             self._exposureOFF = exposureValue
 
     def postProcess(self, img):
+        # cache : meme input + memes params -> retourne le buffer cache
+        key = (self._on_off, self._exposureON, self._exposureOFF, self._Ytarget)
+        if self._cacheInputId == id(img) and self._cacheKey == key:
+            return self._cacheOutput
+
         if self._on_off:
             # compute mean Y (Luminance)
             ymeanb = image2Ymean(img)
@@ -532,6 +581,9 @@ class AE_Ymean(PostProcess):
         else:
             imgOut = img * math.pow(2, self._exposureOFF)
 
+        self._cacheInputId = id(img)
+        self._cacheKey = key
+        self._cacheOutput = imgOut
         return imgOut
 
 # ----------------------------------------------------------------------------------

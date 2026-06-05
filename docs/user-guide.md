@@ -33,15 +33,19 @@ L'application s'ouvre dans une **fenetre unique** avec un theme sombre :
 |                     |                                            |
 |  [Project]          |                                            |
 |  [HDR Mode]         +--------------------------------------------+
-|  [Auto Exposure]    |    NUAGE 3D      |     ROUE CHROMATIQUE    |
-|  [Saturation]       |   (moderngl)     |    (click = couleur)    |
-|  [Light: xxx]       |                  |                         |
-+---------------------+------------------+-------------------------+
+|  [Auto Exposure]    |          NUAGE 3D RGB                      |
+|  [Saturation]       |          (moderngl)                        |
+|  [Light: xxx]       |                                            |
++---------------------+--------------------------------------------+
 ```
 
 - Le splitter entre la sidebar et la zone image est deplacable
-- Le splitter vertical entre l'image et le panneau analytique aussi
+- Le splitter vertical entre l'image et le nuage 3D aussi
 - Le tout est responsive (s'adapte au resize de la fenetre)
+
+Le choix de couleur des lumieres se fait via le bouton palette de
+chaque card lumiere (voir plus bas), qui ouvre le picker natif Qt
+(`QColorDialog`).
 
 ## Panneau de controle (sidebar)
 
@@ -62,9 +66,12 @@ ajoutee :
 - `[ - ]` : diminue l'exposition de la lumiere de 0.5 EV
 - `[ +/- X.XX ]` : valeur d'exposition courante (label, pas editable directement)
 - `[ + ]` : augmente l'exposition de la lumiere de 0.5 EV
-- `[ CC ]` : selectionne cette lumiere comme active pour la roue chromatique
+- `[ palette ]` : ouvre un picker natif (`QColorDialog`) pour choisir
+  la couleur de la lumiere (RGB, HSV, hex, palette, pipette)
 - `[ slider ]` : deplace l'index de l'image active dans le set (position
   de la lumiere dans la scene 3D pre-calculee)
+- `[ carre couleur ]` : preview de la couleur actuelle de la lumiere
+  (mis a jour en temps reel quand on change la couleur)
 
 ### Automatic Exposure
 
@@ -93,13 +100,17 @@ Quand elle est decochee, on retombe en mode LDR classique (clip a 1.0).
 L'etat peut aussi etre initialise depuis le XML avec l'attribut
 `hdr="true"` sur la balise racine `<LIGHTSETTUP>` (voir `xml-format.md`).
 
-## Roue chromatique
+## Choix de couleur (palette native)
 
 Pour changer la couleur d'une lumiere :
-1. cliquer sur le bouton palette (CC) de la lumiere concernee dans la
-   sidebar.
-2. cliquer n'importe ou sur la roue (en bas a droite) pour appliquer
-   cette couleur. Le rendu se met a jour instantanement.
+1. cliquer sur le bouton palette de la card de la lumiere concernee dans
+   la sidebar. Un `QColorDialog` natif s'ouvre, pre-rempli avec la
+   couleur actuelle.
+2. choisir une couleur (RGB, HSV, hex, palette predefinie, pipette ecran)
+   puis valider. Le rendu et le carre de preview se mettent a jour
+   instantanement.
+
+Si on annule la boite de dialogue, la couleur ne change pas.
 
 ## Ajouter une scene
 

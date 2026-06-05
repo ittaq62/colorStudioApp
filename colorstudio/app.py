@@ -15,7 +15,7 @@ import sys
 
 from PyQt6.QtCore import QSettings
 from PyQt6.QtGui import QIcon, QPixmap
-from PyQt6.QtWidgets import QApplication, QFileDialog, QMessageBox, QSplashScreen
+from PyQt6.QtWidgets import QApplication, QMessageBox, QSplashScreen
 
 logger = logging.getLogger(__name__)
 
@@ -49,20 +49,6 @@ def _setup_logging():
         datefmt='%H:%M:%S',
         stream=sys.stderr,
     )
-
-
-def _select_scene_file(parent=None, start_dir=""):
-    """
-    ouvre la QFileDialog pour selectionner un fichier de scene.
-    retourne le chemin choisi ou None si annulation.
-    """
-    filename, _ = QFileDialog.getOpenFileName(
-        parent,
-        "Color Studio - choisir un fichier de scene",
-        start_dir,
-        "Scene files (*.json *.xml);;JSON files (*.json);;XML files (*.xml)",
-    )
-    return filename if filename else None
 
 
 def _load_scene(filename, scale=0.5):
@@ -134,11 +120,14 @@ def main(argv=None):
     logger.info("resolution ecran : %dx%d", screenX, screenY)
     colorStudioUIBuilder.CSUIBuilder.setTemplate(screenX, screenY)
 
-    # selection du fichier de scene :
-    # 1. argument CLI
-    # 2. dernier fichier ouvert (QSettings)
-    # 3. dialogue
-    # 4. fallback xml-postProcess-test.json
+    # selection du fichier de scene (resolution silencieuse, sans interrompre l'utilisateur) :
+    # 1. argument CLI (ex: `colorstudio xml-hdr-demo.json`)
+    # 2. dernier fichier ouvert memorise par QSettings
+    # 3. scene par defaut livree avec l'app (xml-postProcess-test.json)
+    #
+    # L'utilisateur peut toujours ouvrir un autre fichier via le menu Fichier > Ouvrir.
+    # On ne lui balance plus de QFileDialog au demarrage : c'etait un comportement
+    # heritage du code 2019, pas adapte a une vraie app desktop.
     settings = QSettings(APP_ORG, APP_NAME)
     inputFilename = None
 
@@ -147,25 +136,18 @@ def main(argv=None):
         logger.info("fichier passe en argument : %s", inputFilename)
 
     if inputFilename is None:
-        # essaie d'utiliser le dernier fichier ouvert
+        # essaie d'utiliser le dernier fichier ouvert (lancements suivants)
         last_file = settings.value("recent/lastFile", type=str)
         if last_file and os.path.exists(last_file):
             inputFilename = last_file
             logger.info("dernier fichier reouvert : %s", inputFilename)
 
-    if inputFilename is None:
-        if splash:
-            splash.hide()
-        inputFilename = _select_scene_file()
-        if splash:
-            splash.show()
-
     if not inputFilename:
-        # fallback : scene par defaut livree dans le repo
+        # premier lancement : scene par defaut livree dans le bundle
         default_file = _get_asset_path('xml-postProcess-test.json')
         if os.path.exists(default_file):
             inputFilename = default_file
-            logger.info("fallback sur scene par defaut : %s", inputFilename)
+            logger.info("premier lancement, scene par defaut : %s", inputFilename)
         else:
             QMessageBox.critical(
                 None,

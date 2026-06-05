@@ -73,8 +73,13 @@ class CSUIBuilder:
 
     @staticmethod
     def uiLoadIcon(pathUIimg=None):
+        # par defaut on cherche les icons dans le dossier du package
+        # (fonctionne quel que soit le cwd, et marche aussi en mode bundle PyInstaller)
         if pathUIimg is None:
-            pathUIimg = './colorstudio/icons/'
+            import os
+            pathUIimg = os.path.join(
+                os.path.dirname(os.path.abspath(__file__)), 'icons', ''
+            )
         # window with buttons
         CSUIBuilder.uiLoadIMG  = QIcon(pathUIimg + 'load.svg')
         CSUIBuilder.uiSaveIMG  = QIcon(pathUIimg + 'save.svg')
@@ -89,17 +94,34 @@ class CSMainWindow(QMainWindow):
     def __init__(self, title="Color Studio 2026"):
         super().__init__()
         self.setWindowTitle(title)
-        
+
+        # icone de la fenetre (barre des taches Windows)
+        # on essaye d'abord le .ico, sinon on prend le splash en fallback
+        import os
+        from PyQt6.QtGui import QIcon
+        # repo root = parent du package colorstudio/
+        repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        ico_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'icons', 'app.ico')
+        if os.path.exists(ico_path):
+            self.setWindowIcon(QIcon(ico_path))
+        else:
+            splash = os.path.join(repo_root, 'splashScreen.jpg')
+            if os.path.exists(splash):
+                self.setWindowIcon(QIcon(splash))
+
         # Determine a sensible size based on screen
         s_width, s_height = colorStudioWidget.getScreenSize()
         w = min(1400, int(s_width * 0.9))
         h = min(800, int(s_height * 0.9))
         self.resize(w, h)
-        
+
         self.apply_style()
 
     def apply_style(self):
-        style_file = QFile("./colorstudio/styles.qss")
+        # styles.qss est dans le package, a cote de ce fichier
+        import os
+        qss_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'styles.qss')
+        style_file = QFile(qss_path)
         if style_file.open(QFile.OpenModeFlag.ReadOnly | QFile.OpenModeFlag.Text):
             stream = QTextStream(style_file)
             self.setStyleSheet(stream.readAll())

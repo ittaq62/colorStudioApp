@@ -1,5 +1,6 @@
-PyQt6
-moderngl
-numpy
-imageio
-scikit-image
+PyQt6>=6.6
+moderngl>=5.10
+numpy>=1.26
+imageio>=2.34
+scikit-image>=0.22
+Pillow>=10.0
